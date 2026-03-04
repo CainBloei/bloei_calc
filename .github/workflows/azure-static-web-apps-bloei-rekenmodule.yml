@@ -36,6 +36,7 @@ jobs:
           skip_app_build: false
         env:
           VITE_API_BASE_URL: https://bloei-rekenmodule-bzbke5cmekhgfhan.westeurope-01.azurewebsites.net
+          VITE_API_KEY: ${{ secrets.MODULE_API_KEY }}
 
   close_pull_request_job:
     if: github.event_name == 'pull_request' && github.event.action == 'closed'
