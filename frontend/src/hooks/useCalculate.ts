@@ -55,7 +55,17 @@ export function useCalculate() {
     setError(null);
     try {
       const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
-      const response = await axios.post<RekenOutput>(`${baseURL}/calculate`, input);
+      
+      // 1. Haal de API-sleutel op uit de omgeving, of gebruik de lokale test-sleutel
+      const apiKey = import.meta.env.VITE_API_KEY || 'lokale_ontwikkel_sleutel_123!';
+
+      // 2. Stuur de sleutel mee in de headers van het POST-verzoek
+      const response = await axios.post<RekenOutput>(`${baseURL}/calculate`, input, {
+        headers: {
+          'X-API-Key': apiKey
+        }
+      });
+      
       setData(response.data);
     } catch (err: unknown) {
       setError(getSafeErrorMessage(err));
