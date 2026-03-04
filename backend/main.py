@@ -73,3 +73,13 @@ async def calculate(input_data: RekenInput):
     """
     result = bereken_kosten(input_data)
     return result
+
+
+    @app.get("/debug-cors")
+async def debug_cors():
+    """Tijdelijk endpoint om te zien of Azure de variabelen goed doorgeeft."""
+    import os
+    return {
+        "frontend_url_in_azure": os.getenv("FRONTEND_URL", "NIET GEVONDEN!"),
+        "actieve_gastenlijst": _allowed_origins
+    }
