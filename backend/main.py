@@ -75,7 +75,7 @@ async def calculate(input_data: RekenInput):
     return result
 
 
-    @app.get("/debug-cors")
+@app.get("/debug-cors")
 async def debug_cors():
     """Tijdelijk endpoint om te zien of Azure de variabelen goed doorgeeft."""
     import os
