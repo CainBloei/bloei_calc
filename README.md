@@ -1,81 +1,98 @@
-# Bloei Rekenmodule – Proof of Concept
+# Bloei Rekenmodule – React & FastAPI Migration
 
-A standalone Python proof-of-concept application for calculating investment fees and long-term average costs for Bloei Vermogen.
+A full-stack application for calculating investment fees and long-term average costs for Bloei Vermogen, rebuilt with React (Vite) and FastAPI.
+
+## Architecture
+
+1. **Backend (FastAPI):** A lightweight Python REST API wrapping the core calculation engine (`domain.py` and `logic.py`).
+2. **Frontend (React + Vite):** A modern SPA handling user inputs, API communication, and chart rendering with Tailwind CSS and Chart.js.
 
 ## Project Structure
 
 ```
 bloei-calc-demo/
-├── bloei_rekenmodel/
-│   ├── __init__.py
-│   ├── domain.py          # RekenInput and RekenOutput dataclasses
-│   └── logic.py           # bereken_kosten calculation function
-├── app_streamlit.py       # Streamlit UI application
-├── requirements.txt       # Python dependencies
-└── README.md             # This file
+├── backend/                  # FastAPI Application
+│   ├── main.py               # API endpoints
+│   ├── requirements.txt      # Python dependencies
+│   └── bloei_rekenmodel/     # Calculation engine
+└── frontend/                 # React Application
+    ├── src/                  # React components, hooks, types
+    ├── package.json          # Node dependencies
+    └── tailwind.config.js    # Styling configuration
 ```
 
 ## Setup Instructions
 
-### 1. Create Virtual Environment
+### 1. Backend (FastAPI)
 
-```bash
-python -m venv venv
-```
+1. Navigate to the backend directory:
+   ```bash
+   cd backend
+   ```
+2. Create and activate a virtual environment:
+   ```bash
+   python -m venv venv
+   # Windows: venv\Scripts\activate
+   # macOS/Linux: source venv/bin/activate
+   ```
+3. Install dependencies:
+   ```bash
+   pip install -r requirements.txt
+   ```
+4. Create a `.env` file (optional, for CORS/config):
+   ```bash
+   cp .env.example .env
+   ```
+5. Run the development server:
+   ```bash
+   uvicorn main:app --reload --port 8000
+   ```
+   The API will be available at `http://localhost:8000`. API documentation is automatically generated at `http://localhost:8000/docs`.
 
-### 2. Activate Virtual Environment
+### 2. Frontend (React + Vite)
 
-**On macOS/Linux:**
-```bash
-source venv/bin/activate
-```
-
-**On Windows:**
-```bash
-venv\Scripts\activate
-```
-
-### 3. Install Dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Run the Application
-
-```bash
-streamlit run app_streamlit.py
-```
-
-The application will open in your default web browser, typically at `http://localhost:8501`.
+1. Open a new terminal and navigate to the frontend directory:
+   ```bash
+   cd frontend
+   ```
+2. Install Node.js dependencies:
+   ```bash
+   npm install
+   ```
+3. Create a `.env.development` file:
+   ```bash
+   echo "VITE_API_BASE_URL=http://localhost:8000" > .env.development
+   ```
+4. Start the development server:
+   ```bash
+   npm run dev
+   ```
+   The UI will be available at `http://localhost:5173`.
 
 ## Usage
 
-1. Enter the starting investment amount (Startvermogen)
-2. Select the risk profile (Profiel): Defensief, Matig defensief, Neutraal, Offensief, or Zeer offensief
-3. Adjust the investment horizon (Horizon) using the slider (1-40 years)
-4. Set the number of scenarios (Aantal Scenario's)
-5. Click "Bereken" to calculate and display the results
+1. Open the frontend URL in your browser.
+2. Enter the starting investment amount (Startvermogen) and select a risk profile in the left sidebar.
+3. Add any periodic or one-time cashflows as needed.
+4. Adjust simulation parameters (Horizon, Scenarios, Seed).
+5. Click **"Bereken Resultaat"** to fetch the projection from the FastAPI backend and view the interactive charts and metrics.
 
-Note: The broker is fixed to Saxo Bank and is not a variable in the calculation.
+## Azure Deployment (GitHub → Azure)
 
-## Important Notes
+De app ondersteunt twee deployment-paden:
 
-⚠️ **This is a demo proof-of-concept with dummy formulas and no real data source.**
+### Backend (Azure App Service)
 
-- All calculation logic is simplified for demonstration purposes
-- No Excel integration or external data sources
-- No database connections
-- All calculations are performed in-memory based on input parameters
+- **Workflow:** `.github/workflows/main_bloei-rekenmodule.yml`
+- Deployt de Python/FastAPI backend naar Azure Web App `Bloei-rekenmodule`.
+- Vereist: GitHub Secrets voor Azure login (client-id, tenant-id, subscription-id).
+- **Startup command** (in Azure Portal → App Service → Configuration → General settings):  
+  `uvicorn main:app --host 0.0.0.0 --port 8000`
+- **FRONTEND_URL** (optioneel): Stel in als de frontend-URL voor CORS (bijv. `https://jouw-static-web-app.azurestaticapps.net`).
 
-The actual business logic will be implemented when this is integrated into the production backend for Power Apps and Dataverse.
+### Frontend (Azure Static Web Apps)
 
-## Development
-
-The codebase is structured to be easily extensible:
-
-- `domain.py`: Contains the data models (RekenInput, RekenOutput)
-- `logic.py`: Contains pure calculation functions (no I/O, no side effects)
-- `app_streamlit.py`: Contains the Streamlit UI layer
-
-This structure allows the calculation logic to be reused in other contexts (e.g., REST API, Power Apps backend) without modification.
+- **Workflow:** `.github/workflows/azure-static-web-apps-bloei-rekenmodule.yml`
+- Deployt de React/Vite frontend naar Azure Static Web Apps.
+- **Setup:** Maak een Static Web App in Azure Portal, koppel aan deze repo, en voeg `AZURE_STATIC_WEB_APPS_API_TOKEN` toe aan GitHub Secrets.
+- **VITE_API_BASE_URL:** Zet in `.env.production` de productie-API-URL (bijv. `https://bloei-rekenmodule.azurewebsites.net` of `https://api.bloei-vermogen.nl`).

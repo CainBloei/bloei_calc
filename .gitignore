@@ -1,0 +1,19 @@
+# Virtual environments
+venv/
+backend/venv/
+backend/antenv/
+
+# Backend local env
+backend/.env
+backend/**/__pycache__/
+
+# Python
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Frontend local env
+frontend/.env.development
+
+# IDE / tooling
+.cursor/

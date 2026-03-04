@@ -1,0 +1,6 @@
+@import "tailwindcss";
+
+@theme {
+  --color-bloei-petrol: #0f494f;
+  --color-bloei-pink: #ff787c;
+}
