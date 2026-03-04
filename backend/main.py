@@ -16,44 +16,21 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Bloei Rekenmodule API")
 
-# Configure CORS - include both localhost and 127.0.0.1 so links work either way
-_DEFAULT_ORIGINS = [
-    "http://localhost:5173",
-    "http://localhost:5174",
-    "http://localhost:5175",
-    "http://localhost:5176",
-    "http://localhost:5177",
-    "http://127.0.0.1:5173",
-    "http://127.0.0.1:5174",
-    "http://127.0.0.1:5175",
-    "http://127.0.0.1:5176",
-    "http://127.0.0.1:5177",
-]
+# Check of de app in Azure draait. Zo niet, zet lokale CORS aan voor development.
+IS_AZURE = os.getenv("WEBSITE_SITE_NAME") is not None
 
-
-def _get_allowed_origins() -> list[str]:
-    origins = list(_DEFAULT_ORIGINS)
-    frontend_url = os.getenv("FRONTEND_URL", "").strip()
-    if frontend_url:
-        for url in frontend_url.split(","):
-            url = url.strip()
-            # Haal een eventuele onzichtbare trailing slash weg, anders blokkeert CORS alsnog
-            if url.endswith("/"):
-                url = url[:-1]
-            if url and url != "*":
-                origins.append(url)
-    return origins
-
-
-_allowed_origins = _get_allowed_origins()
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=_allowed_origins,
-    allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
-)
+if not IS_AZURE:
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[
+            "http://localhost:5173", 
+            "http://127.0.0.1:5173",
+            "http://localhost:5174"
+        ],
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
 
 @app.exception_handler(Exception)
@@ -73,13 +50,4 @@ async def calculate(input_data: RekenInput):
     """
     result = bereken_kosten(input_data)
     return result
-
-
-@app.get("/debug-cors")
-async def debug_cors():
-    """Tijdelijk endpoint om te zien of Azure de variabelen goed doorgeeft."""
-    import os
-    return {
-        "frontend_url_in_azure": os.getenv("FRONTEND_URL", "NIET GEVONDEN!"),
-        "actieve_gastenlijst": _allowed_origins
-    }
+    
