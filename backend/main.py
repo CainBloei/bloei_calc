@@ -37,6 +37,9 @@ def _get_allowed_origins() -> list[str]:
     if frontend_url:
         for url in frontend_url.split(","):
             url = url.strip()
+            # Haal een eventuele onzichtbare trailing slash weg, anders blokkeert CORS alsnog
+            if url.endswith("/"):
+                url = url[:-1]
             if url and url != "*":
                 origins.append(url)
     return origins
@@ -49,7 +52,7 @@ app.add_middleware(
     allow_origins=_allowed_origins,
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["Content-Type", "Accept"],
+    allow_headers=["*"],
 )
 
 
