@@ -28,37 +28,46 @@ interface ComponentChartProps {
 }
 
 export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermogen }) => {
-  // Aggregate totals
-  const totalInleg = data.tijdlijn_cashflow_netto.reduce((sum, val) => sum + (val > 0 ? val : 0), 0);
-  const totalOnttrekking = data.tijdlijn_cashflow_netto.reduce((sum, val) => sum + (val < 0 ? Math.abs(val) : 0), 0);
-  
-  const nettoInleg = startvermogen + totalInleg - totalOnttrekking;
-  const rendementBruto = data.verwachte_winst_bruto; // Bruto profit
-  const kostenImpact = data.totale_kosten_impact; // Total cost impact
-  const rendementNetto = Math.max(0, rendementBruto - kostenImpact);
+  // 1. Berekeningen (dezelfde wiskundige truc als eerder voor perfecte data)
+  const stortingen = data.tijdlijn_cashflow_netto.reduce((sum, val) => sum + (val > 0 ? val : 0), 0);
+  const onttrekkingen = Math.abs(data.verwachte_winst_netto - data.verwacht_eindvermogen_netto + startvermogen + stortingen);
 
-  // Drie positieve segmenten zodat de as bij 0 start en alle onderdelen zichtbaar zijn:
-  // Onderaan: inleg, dan rendement na kosten, bovenaan: kosten. Totaal = inleg + bruto rendement.
+  const rendementBruto = data.verwachte_winst_bruto;
+  const kostenImpact = data.totale_kosten_impact;
+  const eindvermogen = data.verwacht_eindvermogen_netto;
+
+  // 2. We zetten de data in een simpele array.
+  // Onttrekkingen en kosten maken we negatief zodat ze naar links wijzen op de X-as.
   const chartData = {
-    labels: ['Verwacht Eindvermogen'],
+    labels: [
+      'Startvermogen', 
+      'Stortingen', 
+      'Rendement (Bruto)', 
+      'Onttrekkingen', 
+      'Kosten Impact', 
+      'Netto Eindvermogen'
+    ],
     datasets: [
       {
-        label: 'Startvermogen + Netto Inleg',
-        data: [nettoInleg],
-        backgroundColor: '#0f494f', // bloei-petrol
-        stack: 'Stack 0',
-      },
-      {
-        label: 'Rendement',
-        data: [rendementNetto],
-        backgroundColor: '#ff787c', // bloei-pink
-        stack: 'Stack 0',
-      },
-      {
-        label: 'Kosten Impact',
-        data: [kostenImpact],
-        backgroundColor: '#9ca3af', // gray-400
-        stack: 'Stack 0',
+        label: 'Bedrag',
+        data: [
+          startvermogen, 
+          stortingen, 
+          rendementBruto, 
+          -onttrekkingen, // Negatief voor weergave naar links
+          -kostenImpact,  // Negatief voor weergave naar links
+          eindvermogen
+        ],
+        backgroundColor: [
+          '#0f494f', // bloei-petrol
+          '#14b8a6', // teal-500
+          '#ff787c', // bloei-pink
+          '#ffc701', // yellow-500
+          '#b34025', // red-500
+          '#0f494f', // bloei-petrol (Eindvermogen zelfde kleur als start)
+        ],
+        borderRadius: 6, // Maakt de staafjes mooi afgerond
+        borderSkipped: false,
       },
     ],
   };
@@ -66,46 +75,49 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
   const options = {
     responsive: true,
     maintainAspectRatio: false,
+    indexAxis: 'y' as const, // Dit draait de grafiek horizontaal!
     plugins: {
       title: {
         display: false,
       },
       legend: {
-        position: 'top' as const,
-        labels: {
-          usePointStyle: true,
-          pointStyle: 'circle',
-          boxWidth: 10,
-          boxHeight: 10,
-        },
+        display: false, // We verbergen de legenda, want de Y-as labels leggen het al uit
       },
       tooltip: {
         callbacks: {
           label: function(context: any) {
-            let label = context.dataset.label || '';
-            if (label) {
-              label += ': ';
-            }
-            if (context.parsed.y !== null) {
-              // Show absolute value in tooltip for costs too
-              label += new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR', maximumFractionDigits: 0 }).format(Math.abs(context.parsed.y));
-            }
-            return label;
+            // We zorgen dat in de tooltip altijd een positief bedrag staat, ook bij kosten
+            return ' € ' + Math.abs(context.raw).toLocaleString('nl-NL', { maximumFractionDigits: 0 });
           }
         }
       },
     },
     scales: {
       x: {
-        stacked: true,
-        display: false, // Hide x axis completely as there is only 1 bar
-      },
-      y: {
-        stacked: true,
-        min: 0,
+        grid: {
+          color: (context: any) => {
+            if (context.tick.value === 0) return '#374151'; // Maak de 0-lijn iets donkerder/duidelijker
+            return '#e5e7eb'; // Lichte grid lines voor de rest
+          },
+          lineWidth: (context: any) => {
+            if (context.tick.value === 0) return 2;
+            return 1;
+          }
+        },
         ticks: {
           callback: function(value: any) {
-            return '€ ' + value.toLocaleString('nl-NL');
+            // Laat op de X-as ook alles als positieve bedragen zien
+            return '€ ' + Math.abs(value).toLocaleString('nl-NL');
+          }
+        }
+      },
+      y: {
+        grid: {
+          display: false, // Verberg de horizontale lijnen voor een schonere look
+        },
+        ticks: {
+          font: {
+            weight: 'bold',
           }
         }
       }
@@ -115,8 +127,8 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
   return (
     <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600 mt-8">
       <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Opbouw Componenten</h3>
-      <p className="text-sm text-gray-500 mb-6">Visualisatie van inleg, rendement en kosten impact.</p>
-      <div className="h-[300px]">
+      <p className="text-sm text-gray-500 mb-6">Verdeling van inkomende en uitgaande geldstromen.</p>
+      <div className="h-[350px]">
         <Bar data={chartData} options={options} />
       </div>
     </div>

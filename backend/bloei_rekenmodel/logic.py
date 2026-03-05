@@ -561,9 +561,9 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     shortfall_arr = np.array([r.total_withdrawal_shortfall_netto for r in scenario_results], dtype=float)
     failed_arr = np.array([1.0 if r.has_withdrawal_shortfall else 0.0 for r in scenario_results], dtype=float)
 
-    # Stats
-    verwacht_eindvermogen_bruto = _safe_stat_mean(end_values_bruto_arr)
-    verwacht_eindvermogen_netto = _safe_stat_mean(end_values_netto_arr)
+    # Stats (p50 mediaan conform MiFID II)
+    verwacht_eindvermogen_bruto = _safe_stat_percentile(end_values_bruto_arr, 50)
+    verwacht_eindvermogen_netto = _safe_stat_percentile(end_values_netto_arr, 50)
 
     # Percentiles for end values (netto)
     verwacht_eindvermogen_p10_netto = _safe_stat_percentile(end_values_netto_arr, 10)
@@ -574,18 +574,17 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     verwacht_eindvermogen_p80_netto = _safe_stat_percentile(end_values_netto_arr, 80)
     verwacht_eindvermogen_p90_netto = _safe_stat_percentile(end_values_netto_arr, 90)
 
-    verwachte_winst_bruto = _safe_stat_mean(profits_bruto_arr)
-    verwachte_winst_netto = _safe_stat_mean(profits_netto_arr)
+    verwachte_winst_bruto = _safe_stat_percentile(profits_bruto_arr, 50)
+    verwachte_winst_netto = _safe_stat_percentile(profits_netto_arr, 50)
 
-    totale_kosten_betaald = _safe_stat_mean(total_costs_paid_arr)
+    totale_kosten_betaald = _safe_stat_percentile(total_costs_paid_arr, 50)
     totale_kosten_impact = max(0.0, verwachte_winst_bruto - verwachte_winst_netto)
     misgelopen_rendement_op_kosten = max(0.0, totale_kosten_impact - totale_kosten_betaald)
-
-    totale_beheerkosten_betaald = _safe_stat_mean(total_management_costs_paid_arr)
-    totale_fondskosten_betaald = _safe_stat_mean(total_fund_costs_paid_arr)
-    totale_spreadkosten_betaald = _safe_stat_mean(total_spread_costs_paid_arr)
-
-    costs_base_sum = _safe_stat_mean(costs_base_sum_arr)
+    totale_beheerkosten_betaald = _safe_stat_percentile(total_management_costs_paid_arr, 50)
+    totale_fondskosten_betaald = _safe_stat_percentile(total_fund_costs_paid_arr, 50)
+    totale_spreadkosten_betaald = _safe_stat_percentile(total_spread_costs_paid_arr, 50)
+    costs_base_sum = _safe_stat_percentile(costs_base_sum_arr, 50)
+    
     if costs_base_sum > 0:
         gemiddelde_beheerkosten_pct = _safe_float((totale_beheerkosten_betaald * 12.0 / costs_base_sum) * 100.0)
         gemiddelde_fondskosten_pct = _safe_float((totale_fondskosten_betaald * 12.0 / costs_base_sum) * 100.0)
@@ -602,8 +601,8 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     verwacht_onttrekkingstekort = _safe_stat_mean(shortfall_arr)
 
     # Timelines
-    tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.mean(monthly_paths_bruto_arr, axis=0)]
-    tijdlijn_vermogen_netto = [_safe_float(x) for x in np.mean(monthly_paths_netto_arr, axis=0)]
+    tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.percentile(monthly_paths_bruto_arr, 50, axis=0)]
+    tijdlijn_vermogen_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=0)]
 
     # Percentile timelines for netto vermogen
     tijdlijn_vermogen_p10_netto = [
