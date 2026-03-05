@@ -95,7 +95,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Verwachte kosten in de loop van de tijd</h3>
           <div className="overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-bloei-petrol dark:text-white">
+              <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white">
                 <tr>
                   <th className="px-4 py-3 rounded-tl">Kostensoort</th>
                   <th className="px-4 py-3 text-right">% / jaar</th>
@@ -118,7 +118,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
                   <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_spreadkosten_pct, 2)}</td>
                   <td className="px-4 py-3 text-right">{formatCurrency(data.totale_spreadkosten_betaald)}</td>
                 </tr>
-                <tr className="bg-gray-50 dark:bg-bloei-petrol dark:text-white font-bold">
+                <tr className="bg-gray-50 dark:bg-[#000000] dark:text-white font-bold">
                   <td className="px-4 py-3">Totale kosten (cumulatief)</td>
                   <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_totale_kosten_pct, 2)}</td>
                   <td className="px-4 py-3 text-right">{formatCurrency(data.totale_kosten_betaald)}</td>
@@ -127,7 +127,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
             </table>
           </div>
           <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg text-sm">
-            <span className="font-semibold">Let op:</span> Naast de direct betaalde kosten ({formatCurrency(data.totale_kosten_betaald)}) is er ook sprake van misgelopen rendement over de onttrokken kosten ({formatCurrency(data.misgelopen_rendement_op_kosten)}). De totale impact van kosten op uw eindvermogen is {formatCurrency(data.totale_kosten_impact)}.
+            <span className="font-semibold">Let op:</span> Naast de direct betaalde kosten ({formatCurrency(data.totale_kosten_betaald)}) is er ook sprake van misgelopen rendement over de onttrokken kosten ({formatCurrency(data.misgelopen_rendement_op_kosten)}). De totale impact van kosten op het eindvermogen is {formatCurrency(data.totale_kosten_impact)}.
           </div>
         </div>
 
@@ -139,15 +139,15 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
               <tbody className="divide-y divide-gray-200 dark:divide-neutral-600">
                  <tr>
                     <td className="px-4 py-3 font-medium">Verwacht eindvermogen (zonder kosten)</td>
-                    <td className="px-4 py-3 text-right font-bold text-green-600">{formatCurrency(data.verwacht_eindvermogen_bruto)}</td>
+                    <td className="px-4 py-3 text-right dark:text-white mb-4 font-bold">{formatCurrency(data.verwacht_eindvermogen_bruto)}</td>
                  </tr>
                  <tr>
                     <td className="px-4 py-3 font-medium text-red-600">- Totale impact kosten (inclusief misgelopen rendement)</td>
                     <td className="px-4 py-3 text-right text-red-600">{formatCurrency(data.totale_kosten_impact)}</td>
                  </tr>
                  <tr className="bg-gray-50 dark:bg-[#000000] text-lg">
-                    <td className="px-4 py-4 font-bold text-gray-900 dark:text-bloei-petrol">Netto verwacht eindvermogen</td>
-                    <td className="px-4 py-4 text-right dark:text-bloei-petrol font-bold">{formatCurrency(data.verwacht_eindvermogen_netto)}</td>
+                    <td className="px-4 py-4 font-bold text-gray-900 dark:text-white mb-4">Netto verwacht eindvermogen</td>
+                    <td className="px-4 py-4 text-right dark:text-white mb-4 font-bold">{formatCurrency(data.verwacht_eindvermogen_netto)}</td>
                  </tr>
               </tbody>
             </table>
@@ -161,7 +161,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
         <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Voorbeeldscenario jaarlijks overzicht</h3>
         <div className="overflow-x-auto max-h-96">
           <table className="w-full text-sm text-left">
-            <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-bloei-petrol dark:text-white sticky top-0">
+            <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white sticky top-0">
               <tr>
                 <th className="px-4 py-3 dark:text-gray-400 rounded-tl">Jaar</th>
                 <th className="px-4 py-3 text-right">Beginvermogen (p50)</th>
@@ -221,7 +221,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
                   }
 
                   yearlyData.push(
-                    <tr key={`year-${year}`} className="bg-white dark:bg-[#000000] hover:bg-gray-50 dark:hover:bg-bloei-petrol transition-colors">
+                    <tr key={`year-${year}`} className="bg-white dark:bg-[#000000] hover:bg-gray-50 dark:hover:bg-[#000000] transition-colors">
                       <td className="px-4 py-3 dark:text-gray-400 font-medium">Jaar {year}</td>
                       <td className="px-4 py-3 text-right">{formatCurrency(beginVermogen)}</td>
                       <td className={`px-4 py-3 text-right ${cashflowJaar > 0 ? 'text-green-600' : cashflowJaar < 0 ? 'text-red-600' : ''}`}>

@@ -18,6 +18,7 @@ export interface RekenInput {
   periodieke_onttrekking_einddatum?: string;
   eenmalige_cashflows: EenmaligeCashflow[];
   afbouw_profiel: boolean;
+  is_bloei_plus: boolean;
   rng_seed: number;
   custom_rendement_dict?: Record<string, number>;
   custom_volatiliteit_dict?: Record<string, number>;

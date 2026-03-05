@@ -94,26 +94,63 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
     },
     scales: {
       x: {
+        border: {
+          display: false, // <-- FIX: Dit verbergt de harde, onderste basislijn die de 0-lijn afsneed!
+        },
         grid: {
+          z: -1, // <-- Laag -1: Ligt ONDER de staafjes, maar BOVEN de horizontale lijnen
           color: (context: any) => {
-            if (context.tick.value === 0) return '#374151'; // Maak de 0-lijn iets donkerder/duidelijker
-            return '#e5e7eb'; // Lichte grid lines voor de rest
+            if (!context || context.tick === undefined) return 'transparent';
+            
+            const isDark = 
+              document.documentElement.classList.contains('dark') || 
+              document.body.classList.contains('dark') ||
+              (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            // De 0-lijn
+            if (Math.abs(context.tick.value) < 1) {
+              return isDark ? '#a3a3a3' : '#374151'; 
+            }
+            
+            // Overige verticale lijnen
+            return isDark ? '#333333' : '#e5e7eb';
           },
           lineWidth: (context: any) => {
-            if (context.tick.value === 0) return 2;
+            if (context && context.tick !== undefined && Math.abs(context.tick.value) < 1) {
+              return 2; 
+            }
             return 1;
           }
         },
         ticks: {
           callback: function(value: any) {
-            // Laat op de X-as ook alles als positieve bedragen zien
-            return '€ ' + Math.abs(value).toLocaleString('nl-NL');
+            const bedrag = Number(value);
+            // Als het bedrag negatief is, plakken we er netjes een minteken tussen
+            if (bedrag < 0) {
+              return '€ -' + Math.abs(bedrag).toLocaleString('nl-NL');
+            }
+            // Is het positief of 0? Dan gewoon met een spatie
+            return '€ ' + bedrag.toLocaleString('nl-NL');
           }
         }
       },
       y: {
+        border: {
+          display: false, // <-- FIX: Verbergt de buitenste rand aan de linkerkant
+        },
         grid: {
-          display: false, // Verberg de horizontale lijnen voor een schonere look
+          z: -2, // <-- Laag -2: De absolute onderkant (horizontale lijnen)
+          color: (context: any) => {
+            if (context.index === 0) return 'transparent';
+            
+            const isDark = 
+              document.documentElement.classList.contains('dark') || 
+              document.body.classList.contains('dark') ||
+              (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            
+            return isDark ? '#333333' : '#e5e7eb'; 
+          },
+          lineWidth: 1,
         },
         ticks: {
           font: {

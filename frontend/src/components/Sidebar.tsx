@@ -58,6 +58,7 @@ const schema = yup.object({
     })
   ).max(500).default([]),
   afbouw_profiel: yup.boolean().default(false),
+  is_bloei_plus: yup.boolean().default(false),
   rng_seed: yup.number().default(42),
 }).required();
 
@@ -79,6 +80,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
       periodieke_onttrekking_maandelijks: 0,
       eenmalige_cashflows: [],
       afbouw_profiel: false,
+      is_bloei_plus: false,
       rng_seed: 42,
     }
   });
@@ -90,6 +92,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
 
   const watchPeriodiekeStorting = watch('periodieke_storting_maandelijks');
   const watchPeriodiekeOnttrekking = watch('periodieke_onttrekking_maandelijks');
+  const watchIsBloeiPlus = watch('is_bloei_plus');
 
   const onSubmit = (data: RekenInput) => {
     onCalculate(data);
@@ -149,6 +152,44 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
               className="text-sm dark:text-gray-300 cursor-pointer"
             >
               Profiel automatisch afbouwen?
+            </label>
+          </div>
+
+          {/* Custom Segmented Toggle voor Dienstverlening */}
+          <div className="pt-4 border-t border-gray-200 dark:border-neutral-800">
+            <label className="text-sm font-medium mb-3 block text-gray-900 dark:text-gray-300">
+              Dienstverlening
+            </label>
+            
+            <label className="relative flex p-1 bg-gray-200 dark:bg-neutral-800 rounded-full cursor-pointer select-none shadow-inner">
+              {/* De onzichtbare checkbox */}
+              <input
+                type="checkbox"
+                id="is_bloei_plus"
+                {...register('is_bloei_plus')}
+                className="sr-only peer"
+              />
+              
+              {/* De schuivende gekleurde 'pill' */}
+              <div className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-bloei-petrol rounded-full shadow-sm transition-transform duration-300 ease-in-out peer-checked:translate-x-full"></div>
+              
+              {/* Optie 1: Bloei Standaard */}
+              <span className={`relative z-10 w-1/2 text-center text-sm py-1.5 font-medium transition-colors duration-300 ${
+                !watchIsBloeiPlus 
+                  ? 'text-white' 
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}>
+                Bloei
+              </span>
+              
+              {/* Optie 2: Bloei Plus */}
+              <span className={`relative z-10 w-1/2 text-center text-sm py-1.5 font-medium transition-colors duration-300 ${
+                watchIsBloeiPlus 
+                  ? 'text-white' 
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+              }`}>
+                Bloei Plus
+              </span>
             </label>
           </div>
         </section>

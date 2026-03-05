@@ -117,46 +117,83 @@ def _safe_stat_percentile(values: np.ndarray, pct: float) -> float:
     return _safe_float(float(np.percentile(values, pct)))
 
 
-def _bereken_maandkosten_componenten(waarde: float) -> tuple[float, float, float]:
+def _bereken_maandkosten_componenten(waarde: float, is_bloei_plus: bool = False) -> tuple[float, float, float]:
     """Berekent maandkosten uitgesplitst naar (beheer, fonds, spread)."""
     if waarde <= 0:
         return (0.0, 0.0, 0.0)
 
-    TIER_1_MAX = 100_000.0
-    TIER_2_MAX = 1_000_000.0
-    BEHEERKOSTEN_TIER_1 = 0.60 / 100.0
-    BEHEERKOSTEN_TIER_2 = 0.50 / 100.0
-    BEHEERKOSTEN_TIER_3 = 0.40 / 100.0
     FONDSKOSTEN = 0.17 / 100.0
     SPREADKOSTEN = 0.01 / 100.0
-
     beheerkosten_jaar = 0.0
     amount = waarde
 
-    tier_1_amount = min(amount, TIER_1_MAX)
-    beheerkosten_jaar += tier_1_amount * BEHEERKOSTEN_TIER_1
-    amount -= tier_1_amount
+    if is_bloei_plus:
+        # Tiers voor Bloei Plus
+        T1_MAX = 1_000_000.0
+        T2_MAX = 2_500_000.0
+        T3_MAX = 5_000_000.0
+        T4_MAX = 10_000_000.0
 
-    if amount > 0:
-        tier_2_amount = min(amount, TIER_2_MAX - TIER_1_MAX)
-        beheerkosten_jaar += tier_2_amount * BEHEERKOSTEN_TIER_2
-        amount -= tier_2_amount
+        B1 = 0.70 / 100.0
+        B2 = 0.60 / 100.0
+        B3 = 0.50 / 100.0
+        B4 = 0.40 / 100.0
+        B5 = 0.30 / 100.0
 
-    if amount > 0:
-        beheerkosten_jaar += amount * BEHEERKOSTEN_TIER_3
+        t1_amount = min(amount, T1_MAX)
+        beheerkosten_jaar += t1_amount * B1
+        amount -= t1_amount
+
+        if amount > 0:
+            t2_amount = min(amount, T2_MAX - T1_MAX)
+            beheerkosten_jaar += t2_amount * B2
+            amount -= t2_amount
+
+        if amount > 0:
+            t3_amount = min(amount, T3_MAX - T2_MAX)
+            beheerkosten_jaar += t3_amount * B3
+            amount -= t3_amount
+
+        if amount > 0:
+            t4_amount = min(amount, T4_MAX - T3_MAX)
+            beheerkosten_jaar += t4_amount * B4
+            amount -= t4_amount
+
+        if amount > 0:
+            beheerkosten_jaar += amount * B5
+            
+    else:
+        # Tiers voor standaard Bloei
+        TIER_1_MAX = 100_000.0
+        TIER_2_MAX = 1_000_000.0
+        BEHEERKOSTEN_TIER_1 = 0.60 / 100.0
+        BEHEERKOSTEN_TIER_2 = 0.50 / 100.0
+        BEHEERKOSTEN_TIER_3 = 0.40 / 100.0
+
+        tier_1_amount = min(amount, TIER_1_MAX)
+        beheerkosten_jaar += tier_1_amount * BEHEERKOSTEN_TIER_1
+        amount -= tier_1_amount
+
+        if amount > 0:
+            tier_2_amount = min(amount, TIER_2_MAX - TIER_1_MAX)
+            beheerkosten_jaar += tier_2_amount * BEHEERKOSTEN_TIER_2
+            amount -= tier_2_amount
+
+        if amount > 0:
+            beheerkosten_jaar += amount * BEHEERKOSTEN_TIER_3
 
     fondskosten_jaar = waarde * FONDSKOSTEN
     spreadkosten_jaar = waarde * SPREADKOSTEN
+    
     return (
         _safe_float(beheerkosten_jaar / 12.0),
         _safe_float(fondskosten_jaar / 12.0),
         _safe_float(spreadkosten_jaar / 12.0),
     )
 
-
-def _bereken_maandkosten(waarde: float) -> float:
+def _bereken_maandkosten(waarde: float, is_bloei_plus: bool = False) -> float:
     """Berekent de totale kosten (beheer, fonds, spread) voor 1 maand."""
-    beheer, fonds, spread = _bereken_maandkosten_componenten(waarde)
+    beheer, fonds, spread = _bereken_maandkosten_componenten(waarde, is_bloei_plus)
     return _safe_float(beheer + fonds + spread)
 
 
@@ -354,7 +391,7 @@ def _simulate_single_scenario(
         # 4) Costs (netto only; zero costs for cash)
         if profiel_maand != "Niet beleggen" and current_netto > 0:
             costs_base_sum += _safe_float(current_netto)
-            kosten_beheer, kosten_fonds, kosten_spread = _bereken_maandkosten_componenten(current_netto)
+            kosten_beheer, kosten_fonds, kosten_spread = _bereken_maandkosten_componenten(current_netto, inp.is_bloei_plus)
             kosten_deze_maand = kosten_beheer + kosten_fonds + kosten_spread
             current_netto -= kosten_deze_maand
             total_management_costs_paid += _safe_float(kosten_beheer)
@@ -446,7 +483,7 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     """Calculate projections under MiFID II compliance."""
 
     # Initiele kosten schatting puur voor Jaar 1 weergave
-    kosten_eur_jaar1 = _safe_float(_bereken_maandkosten(inp.startvermogen) * 12.0)
+    kosten_eur_jaar1 = _safe_float(_bereken_maandkosten(inp.startvermogen, inp.is_bloei_plus) * 12.0)
     kosten_pct_jaar1 = (
         _safe_float((kosten_eur_jaar1 / inp.startvermogen) * 100.0) if inp.startvermogen > 0 else 0.0
     )

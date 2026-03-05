@@ -80,7 +80,9 @@ class RekenInput(BaseModel):
     eenmalige_cashflows: List[EenmaligeCashflow] = Field(
         default_factory=list, max_length=MAX_EENMALIGE_CASHFLOWS
     )
+
     afbouw_profiel: bool = False
+    is_bloei_plus: bool = False  # standaard Bloei
     rng_seed: int = Field(42, ge=0, le=2**31 - 1)
 
     custom_rendement_dict: Optional[Dict[str, float]] = None
