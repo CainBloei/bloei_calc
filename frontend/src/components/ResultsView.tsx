@@ -80,7 +80,7 @@ export const ResultsView: React.FC<{ data: RekenOutput }> = ({ data }) => {
               </h3>
               <div className="mt-2 text-sm text-red-700 dark:text-red-300">
                 <p>
-                  In {formatPct(data.faalkans * 100, 0)} van de scenario's is er onvoldoende saldo om alle gewenste opnames te doen. Het verwachte onttrekkingstekort is {formatCurrency(data.verwacht_onttrekkingstekort)}.
+                  In {formatPct(data.faalkans * 100, 0)} van de scenario's is er onvoldoende saldo om alle gewenste opnames te doen.
                 </p>
               </div>
             </div>
