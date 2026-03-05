@@ -19,13 +19,19 @@ const CurrencyField = ({ name, control, prefix = "€ ", decimalsLimit = 2 }: { 
       <CurrencyInput
         id={name}
         name={name}
-        value={value}
+        // Als de waarde 0 is, maken we het veld leeg zodat de nul niet in de weg zit.
+        value={value === 0 ? '' : value}
+        // ...maar we tonen wel een nette placeholder zodat de gebruiker snapt dat leeg "0" betekent.
+        placeholder={`${prefix}0`} 
         decimalsLimit={decimalsLimit}
         onValueChange={(val) => onChange(val === undefined ? 0 : Number(val))}
         prefix={prefix}
         groupSeparator="."
         decimalSeparator=","
         className={inputClass}
+        // Zodra je in het veld klikt, selecteert hij direct álle tekst. 
+        // Begin je met typen? Dan overschrijf je alles in één keer schoon!
+        onFocus={(e) => e.target.select()}
       />
     )}
   />
