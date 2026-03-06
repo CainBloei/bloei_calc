@@ -63,7 +63,7 @@ async def global_exception_handler(_request: Request, exc: Exception) -> JSONRes
 
 # 3. NIEUW: Het "slot" (dependencies) toevoegen aan het endpoint
 @app.post("/calculate", dependencies=[Depends(get_api_key)])
-async def calculate(input_data: RekenInput):
+def calculate(input_data: RekenInput):
     """
     Calculate projections based on input parameters.
     """

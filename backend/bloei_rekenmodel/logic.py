@@ -21,10 +21,7 @@ def _add_years(d: date, years: int) -> date:
 
 
 def _add_months(d: date, months: int) -> date:
-    """Add months to a date while preserving day as much as possible.
-
-    Example: 2026-01-31 + 1 month -> 2026-02-28.
-    """
+    """Add months to a date while preserving day as much as possible."""
     year = d.year + (d.month - 1 + months) // 12
     month = (d.month - 1 + months) % 12 + 1
     last_day = calendar.monthrange(year, month)[1]
@@ -58,6 +55,9 @@ def _clamp_period_to_month_indices(
 
     start_idx = max(1, min(total_months, _month_index_bucket(startdatum, s)))
     end_idx = max(1, min(total_months, _month_index_bucket(startdatum, e)))
+    
+    # Bugfix: Als de einddatum voor de startdatum valt, retourneer een ongeldige range
+    # zodat de loop er in de maand-iteratie niet in trapt.
     if end_idx < start_idx:
         return (1, 0)
     return (start_idx, end_idx)
@@ -117,8 +117,8 @@ def _safe_stat_percentile(values: np.ndarray, pct: float) -> float:
     return _safe_float(float(np.percentile(values, pct)))
 
 
+# --- OUDE KOSTEN FUNCTIES (Behouden voor initiële weergave jaar 1) ---
 def _bereken_maandkosten_componenten(waarde: float, is_bloei_plus: bool = False) -> tuple[float, float, float]:
-    """Berekent maandkosten uitgesplitst naar (beheer, fonds, spread)."""
     if waarde <= 0:
         return (0.0, 0.0, 0.0)
 
@@ -128,7 +128,6 @@ def _bereken_maandkosten_componenten(waarde: float, is_bloei_plus: bool = False)
     amount = waarde
 
     if is_bloei_plus:
-        # Tiers voor Bloei Plus
         T1_MAX = 1_000_000.0
         T2_MAX = 2_500_000.0
         T3_MAX = 5_000_000.0
@@ -161,9 +160,7 @@ def _bereken_maandkosten_componenten(waarde: float, is_bloei_plus: bool = False)
 
         if amount > 0:
             beheerkosten_jaar += amount * B5
-            
     else:
-        # Tiers voor standaard Bloei
         TIER_1_MAX = 100_000.0
         TIER_2_MAX = 1_000_000.0
         BEHEERKOSTEN_TIER_1 = 0.60 / 100.0
@@ -192,54 +189,72 @@ def _bereken_maandkosten_componenten(waarde: float, is_bloei_plus: bool = False)
     )
 
 def _bereken_maandkosten(waarde: float, is_bloei_plus: bool = False) -> float:
-    """Berekent de totale kosten (beheer, fonds, spread) voor 1 maand."""
     beheer, fonds, spread = _bereken_maandkosten_componenten(waarde, is_bloei_plus)
     return _safe_float(beheer + fonds + spread)
 
 
-@dataclass
-class _ScenarioResult:
-    end_value_bruto: float
-    end_value_netto: float
-    realized_deposits: float
-    realized_withdrawals_bruto: float
-    realized_withdrawals_netto: float
-    total_withdrawal_shortfall_netto: float
-    has_withdrawal_shortfall: bool
-    total_costs_paid: float
-    total_management_costs_paid: float
-    total_fund_costs_paid: float
-    total_spread_costs_paid: float
-    costs_base_sum: float
-    monthly_values_bruto: list[float]
-    monthly_values_netto: list[float]
-    monthly_net_cashflow: list[float]
-    monthly_cumulative_costs: list[float]
-    monthly_net_shortfall: list[float]
+# --- NIEUWE GEVECTORISEERDE HELPERS ---
+
+def _apply_withdrawal_request_vectorized(requested: float, current_values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    req = max(0.0, float(requested))
+    actual_paid = np.minimum(req, np.maximum(0.0, current_values))
+    new_values = np.maximum(0.0, current_values - req)
+    shortfalls = req - actual_paid
+    return new_values, actual_paid, shortfalls
 
 
-def _apply_withdrawal_request(*, requested: float, current_value: float) -> tuple[float, float, float]:
-    """Apply a withdrawal request to a single account.
+def _bereken_maandkosten_componenten_vectorized(waarden: np.ndarray, is_bloei_plus: bool) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    beheer = np.zeros_like(waarden)
+    amount = waarden.copy()
 
-    Returns: (new_value, actual_paid, shortfall)
-    """
-    requested = max(0.0, float(requested))
-    current_value = float(current_value)
-    
-    # Wat is er écht beschikbaar in de pot?
-    actual_paid = min(requested, max(0.0, current_value))
-    
-    # Het vermogen mag echter niet negatief worden en krijgt een bodem van 0
-    new_value = max(0.0, current_value - requested)
-    
-    # Shortfall is het deel van het verzoek dat we niet konden betalen
-    shortfall = requested - actual_paid
-    
-    return (new_value, actual_paid, shortfall)
+    if is_bloei_plus:
+        T1, B1 = 1_000_000.0, 0.70 / 100.0
+        T2, B2 = 2_500_000.0, 0.60 / 100.0
+        T3, B3 = 5_000_000.0, 0.50 / 100.0
+        T4, B4 = 10_000_000.0, 0.40 / 100.0
+        B5 = 0.30 / 100.0
+
+        amt1 = np.clip(amount, 0, T1)
+        beheer += amt1 * B1
+        amount -= amt1
+
+        amt2 = np.clip(amount, 0, T2 - T1)
+        beheer += amt2 * B2
+        amount -= amt2
+
+        amt3 = np.clip(amount, 0, T3 - T2)
+        beheer += amt3 * B3
+        amount -= amt3
+
+        amt4 = np.clip(amount, 0, T4 - T3)
+        beheer += amt4 * B4
+        amount -= amt4
+
+        beheer += np.maximum(0, amount) * B5
+    else:
+        T1, B1 = 100_000.0, 0.60 / 100.0
+        T2, B2 = 1_000_000.0, 0.50 / 100.0
+        B3 = 0.40 / 100.0
+
+        amt1 = np.clip(amount, 0, T1)
+        beheer += amt1 * B1
+        amount -= amt1
+
+        amt2 = np.clip(amount, 0, T2 - T1)
+        beheer += amt2 * B2
+        amount -= amt2
+
+        beheer += np.maximum(0, amount) * B3
+
+    fonds = waarden * (0.17 / 100.0)
+    spread = waarden * (0.01 / 100.0)
+
+    return beheer / 12.0, fonds / 12.0, spread / 12.0
 
 
-def _simulate_single_scenario(
-    *,
+# --- NIEUWE GEVECTORISEERDE SIMULATIE ---
+
+def _simulate_all_scenarios(
     inp: RekenInput,
     total_months: int,
     cashflows_by_month_begin: dict[int, list[EenmaligeCashflow]],
@@ -252,45 +267,37 @@ def _simulate_single_scenario(
     volatiliteit_by_profiel: dict[str, float],
     start_profiel: str,
     rng: np.random.Generator,
-) -> _ScenarioResult:
-    """Simulate one path.
+) -> dict:
+    N = inp.n_scenarios
+    
+    current_bruto = np.full(N, float(inp.startvermogen))
+    current_netto = np.full(N, float(inp.startvermogen))
+    
+    realized_deposits = np.full(N, float(inp.startvermogen))
+    realized_withdrawals_bruto = np.zeros(N)
+    realized_withdrawals_netto = np.zeros(N)
+    total_withdrawal_shortfall_netto = np.zeros(N)
+    has_withdrawal_shortfall = np.zeros(N, dtype=bool)
 
-    - Simple return model: return ~ Normal, wealth *= (1 + r)
+    total_costs_paid = np.zeros(N)
+    total_management_costs_paid = np.zeros(N)
+    total_fund_costs_paid = np.zeros(N)
+    total_spread_costs_paid = np.zeros(N)
+    costs_base_sum = np.zeros(N)
 
-    Costs:
-    - Applied monthly on netto only.
-    - If profiel == "Niet beleggen" (cash), no costs are charged.
+    monthly_values_bruto = np.zeros((total_months + 1, N))
+    monthly_values_netto = np.zeros((total_months + 1, N))
+    monthly_net_cashflow = np.zeros((total_months + 1, N))
+    monthly_cumulative_costs = np.zeros((total_months + 1, N))
+    monthly_net_shortfall = np.zeros((total_months + 1, N))
 
-    Withdrawals:
-    - Modelled as requests; shortfalls are recorded.
-    """
-
-    current_bruto = float(inp.startvermogen)
-    current_netto = float(inp.startvermogen)
-
-    realized_deposits = float(inp.startvermogen)
-    realized_withdrawals_bruto = 0.0
-    realized_withdrawals_netto = 0.0
-
-    total_withdrawal_shortfall_netto = 0.0
-    has_withdrawal_shortfall = False
-
-    total_costs_paid = 0.0
-    total_management_costs_paid = 0.0
-    total_fund_costs_paid = 0.0
-    total_spread_costs_paid = 0.0
-    costs_base_sum = 0.0
-
-    monthly_values_bruto = [current_bruto]
-    monthly_values_netto = [current_netto]
-    monthly_net_cashflow = [0.0]
-    monthly_cumulative_costs = [0.0]
-    monthly_net_shortfall = [0.0]
+    monthly_values_bruto[0, :] = current_bruto
+    monthly_values_netto[0, :] = current_netto
 
     if total_months == 0:
-        # Apply end-of-horizon cashflows immediately (horizon marker == start)
-        end_cashflow_net = 0.0
-        end_shortfall_net = 0.0
+        end_cashflow_net = np.zeros(N)
+        end_shortfall_net = np.zeros(N)
+        
         for cf in cashflows_end_of_horizon:
             if cf.type == "storting":
                 current_bruto += cf.bedrag
@@ -298,197 +305,181 @@ def _simulate_single_scenario(
                 realized_deposits += cf.bedrag
                 end_cashflow_net += cf.bedrag
             else:
-                current_bruto, paid_b, shortfall_b = _apply_withdrawal_request(requested=cf.bedrag, current_value=current_bruto)
-                current_netto, paid_n, shortfall_n = _apply_withdrawal_request(requested=cf.bedrag, current_value=current_netto)
-                realized_withdrawals_bruto += paid_b
-                realized_withdrawals_netto += paid_n
-                if shortfall_n > 0:
-                    total_withdrawal_shortfall_netto += shortfall_n
-                    has_withdrawal_shortfall = True
+                current_bruto, pb, sb = _apply_withdrawal_request_vectorized(cf.bedrag, current_bruto)
+                current_netto, pn, sn = _apply_withdrawal_request_vectorized(cf.bedrag, current_netto)
+                realized_withdrawals_bruto += pb
+                realized_withdrawals_netto += pn
+                total_withdrawal_shortfall_netto += sn
+                has_withdrawal_shortfall |= (sn > 0)
                 end_cashflow_net -= cf.bedrag
-                end_shortfall_net += shortfall_n
+                end_shortfall_net += sn
 
-        current_bruto = _safe_float(current_bruto)
-        current_netto = _safe_float(current_netto)
-        monthly_values_bruto[-1] = current_bruto
-        monthly_values_netto[-1] = current_netto
-        monthly_net_cashflow[-1] = _safe_float(end_cashflow_net)
-        monthly_net_shortfall[-1] = _safe_float(end_shortfall_net)
+        current_bruto = np.maximum(0.0, current_bruto)
+        current_netto = np.maximum(0.0, current_netto)
+        
+        monthly_values_bruto[-1, :] = current_bruto
+        monthly_values_netto[-1, :] = current_netto
+        monthly_net_cashflow[-1, :] = end_cashflow_net
+        monthly_net_shortfall[-1, :] = end_shortfall_net
 
-        return _ScenarioResult(
-            end_value_bruto=current_bruto,
-            end_value_netto=current_netto,
-            realized_deposits=realized_deposits,
-            realized_withdrawals_bruto=realized_withdrawals_bruto,
-            realized_withdrawals_netto=realized_withdrawals_netto,
-            total_withdrawal_shortfall_netto=_safe_float(total_withdrawal_shortfall_netto),
-            has_withdrawal_shortfall=bool(has_withdrawal_shortfall),
-            total_costs_paid=_safe_float(total_costs_paid),
-            total_management_costs_paid=_safe_float(total_management_costs_paid),
-            total_fund_costs_paid=_safe_float(total_fund_costs_paid),
-            total_spread_costs_paid=_safe_float(total_spread_costs_paid),
-            costs_base_sum=_safe_float(costs_base_sum),
-            monthly_values_bruto=monthly_values_bruto,
-            monthly_values_netto=monthly_values_netto,
-            monthly_net_cashflow=monthly_net_cashflow,
-            monthly_cumulative_costs=monthly_cumulative_costs,
-            monthly_net_shortfall=monthly_net_shortfall,
-        )
+        return {
+            "end_values_bruto": current_bruto,
+            "end_values_netto": current_netto,
+            "monthly_paths_bruto": monthly_values_bruto,
+            "monthly_paths_netto": monthly_values_netto,
+            "monthly_net_cashflow": monthly_net_cashflow,
+            "monthly_cumulative_costs": monthly_cumulative_costs,
+            "monthly_net_shortfall": monthly_net_shortfall,
+            "realized_deposits": realized_deposits,
+            "realized_withdrawals_bruto": realized_withdrawals_bruto,
+            "realized_withdrawals_netto": realized_withdrawals_netto,
+            "total_costs_paid": total_costs_paid,
+            "total_management_costs_paid": total_management_costs_paid,
+            "total_fund_costs_paid": total_fund_costs_paid,
+            "total_spread_costs_paid": total_spread_costs_paid,
+            "costs_base_sum": costs_base_sum,
+            "has_withdrawal_shortfall": has_withdrawal_shortfall,
+            "total_withdrawal_shortfall_netto": total_withdrawal_shortfall_netto
+        }
+
+    mu_array = np.zeros(total_months)
+    sigma_array = np.zeros(total_months)
+    is_niet_beleggen = np.zeros(total_months, dtype=bool)
+
+    for m in range(1, total_months + 1):
+        p = _profiel_with_afbouw(start_profiel, total_months, m) if inp.afbouw_profiel else start_profiel
+        if p == "Niet beleggen":
+            is_niet_beleggen[m-1] = True
+        else:
+            mu_array[m-1] = float(verwacht_rendement_by_profiel.get(p, 0.0)) / 100.0 / 12.0
+            sigma_array[m-1] = float(volatiliteit_by_profiel.get(p, 0.0)) / 100.0 / sqrt(12.0)
+
+    r_matrix = rng.normal(mu_array[:, None], sigma_array[:, None], size=(total_months, N))
+    growth_matrix = 1.0 + r_matrix
 
     for month in range(1, total_months + 1):
-        net_cashflow_month = 0.0
-        shortfall_month = 0.0
+        net_cashflow_month = np.zeros(N)
+        shortfall_month = np.zeros(N)
 
-        # 1) One-time flows at BEGINNING of month
-        for cashflow in cashflows_by_month_begin.get(month, []):
-            if cashflow.type == "storting":
-                current_bruto += cashflow.bedrag
-                current_netto += cashflow.bedrag
-                realized_deposits += cashflow.bedrag
-                net_cashflow_month += cashflow.bedrag
+        for cf in cashflows_by_month_begin.get(month, []):
+            if cf.type == "storting":
+                current_bruto += cf.bedrag
+                current_netto += cf.bedrag
+                realized_deposits += cf.bedrag
+                net_cashflow_month += cf.bedrag
             else:
-                current_bruto, paid_b, shortfall_b = _apply_withdrawal_request(requested=cashflow.bedrag, current_value=current_bruto)
-                current_netto, paid_n, shortfall_n = _apply_withdrawal_request(requested=cashflow.bedrag, current_value=current_netto)
-                realized_withdrawals_bruto += paid_b
-                realized_withdrawals_netto += paid_n
-                if shortfall_n > 0:
-                    total_withdrawal_shortfall_netto += shortfall_n
-                    has_withdrawal_shortfall = True
-                net_cashflow_month -= cashflow.bedrag
-                shortfall_month += shortfall_n
+                current_bruto, pb, sb = _apply_withdrawal_request_vectorized(cf.bedrag, current_bruto)
+                current_netto, pn, sn = _apply_withdrawal_request_vectorized(cf.bedrag, current_netto)
+                realized_withdrawals_bruto += pb
+                realized_withdrawals_netto += pn
+                total_withdrawal_shortfall_netto += sn
+                has_withdrawal_shortfall |= (sn > 0)
+                net_cashflow_month -= cf.bedrag
+                shortfall_month += sn
 
-        # 2) Determine profile for this month
-        if inp.afbouw_profiel:
-            profiel_maand = _profiel_with_afbouw(start_profiel, total_months, month)
-        else:
-            profiel_maand = inp.profiel
+        if not is_niet_beleggen[month-1]:
+            growth = growth_matrix[month-1]
+            current_bruto = np.where(current_bruto > 0, current_bruto * growth, current_bruto)
+            current_netto = np.where(current_netto > 0, current_netto * growth, current_netto)
 
-        # 3) Apply return
-        annual_return = float(verwacht_rendement_by_profiel.get(profiel_maand, 0.0)) / 100.0
-        annual_volatility = float(volatiliteit_by_profiel.get(profiel_maand, 0.0)) / 100.0
+        if not is_niet_beleggen[month-1]:
+            mask_pos = current_netto > 0
+            costs_base_sum += np.where(mask_pos, current_netto, 0.0)
 
-        if profiel_maand == "Niet beleggen":
-            # Cash semantics: no market risk, no costs.
-            current_bruto = _safe_float(current_bruto)
-            current_netto = _safe_float(current_netto)
-        else:
-            # Simple-return model: wealth *= (1 + r)
-            sigma_month = annual_volatility / sqrt(12.0)
-            mu_month = annual_return / 12.0
-            r_month = float(rng.normal(mu_month, sigma_month))
-            growth = (1.0 + r_month)
+            beheer, fonds, spread = _bereken_maandkosten_componenten_vectorized(
+                np.where(mask_pos, current_netto, 0.0), inp.is_bloei_plus
+            )
+            tot_kosten = beheer + fonds + spread
 
-            # Marktrendement geldt alleen over positief saldo.
-            # Een negatief saldo is een papieren tekort en belegt niet mee.
-            if current_bruto > 0:
-                current_bruto *= growth
-            if current_netto > 0:
-                current_netto *= growth
+            current_netto -= tot_kosten
+            total_management_costs_paid += beheer
+            total_fund_costs_paid += fonds
+            total_spread_costs_paid += spread
+            total_costs_paid += tot_kosten
 
-            current_bruto = _safe_float(current_bruto)
-            current_netto = _safe_float(current_netto)
-
-        # 4) Costs (netto only; zero costs for cash)
-        if profiel_maand != "Niet beleggen" and current_netto > 0:
-            costs_base_sum += _safe_float(current_netto)
-            kosten_beheer, kosten_fonds, kosten_spread = _bereken_maandkosten_componenten(current_netto, inp.is_bloei_plus)
-            kosten_deze_maand = kosten_beheer + kosten_fonds + kosten_spread
-            current_netto -= kosten_deze_maand
-            total_management_costs_paid += _safe_float(kosten_beheer)
-            total_fund_costs_paid += _safe_float(kosten_fonds)
-            total_spread_costs_paid += _safe_float(kosten_spread)
-            total_costs_paid += _safe_float(kosten_deze_maand)
-            current_netto = _safe_float(current_netto)
-
-        # 5) Periodic flows at END of month
         if inp.periodieke_storting_maandelijks > 0 and storting_start_idx <= month <= storting_end_idx:
-            current_bruto += inp.periodieke_storting_maandelijks
-            current_netto += inp.periodieke_storting_maandelijks
-            realized_deposits += inp.periodieke_storting_maandelijks
-            net_cashflow_month += inp.periodieke_storting_maandelijks
+            val = inp.periodieke_storting_maandelijks
+            current_bruto += val
+            current_netto += val
+            realized_deposits += val
+            net_cashflow_month += val
 
         if inp.periodieke_onttrekking_maandelijks > 0 and onttrekking_start_idx <= month <= onttrekking_end_idx:
             req = inp.periodieke_onttrekking_maandelijks
-            current_bruto, paid_b, shortfall_b = _apply_withdrawal_request(requested=req, current_value=current_bruto)
-            current_netto, paid_n, shortfall_n = _apply_withdrawal_request(requested=req, current_value=current_netto)
-            realized_withdrawals_bruto += paid_b
-            realized_withdrawals_netto += paid_n
-            if shortfall_n > 0:
-                total_withdrawal_shortfall_netto += shortfall_n
-                has_withdrawal_shortfall = True
+            current_bruto, pb, sb = _apply_withdrawal_request_vectorized(req, current_bruto)
+            current_netto, pn, sn = _apply_withdrawal_request_vectorized(req, current_netto)
+            realized_withdrawals_bruto += pb
+            realized_withdrawals_netto += pn
+            total_withdrawal_shortfall_netto += sn
+            has_withdrawal_shortfall |= (sn > 0)
             net_cashflow_month -= req
-            shortfall_month += shortfall_n
+            shortfall_month += sn
 
-        # 6) Floor: vermogen mag niet negatief worden
-        current_bruto = max(0.0, _safe_float(current_bruto))
-        current_netto = max(0.0, _safe_float(current_netto))
+        current_bruto = np.maximum(0.0, current_bruto)
+        current_netto = np.maximum(0.0, current_netto)
 
-        monthly_values_bruto.append(current_bruto)
-        monthly_values_netto.append(current_netto)
-        monthly_net_cashflow.append(_safe_float(net_cashflow_month))
-        monthly_cumulative_costs.append(_safe_float(total_costs_paid))
-        monthly_net_shortfall.append(_safe_float(shortfall_month))
+        monthly_values_bruto[month, :] = current_bruto
+        monthly_values_netto[month, :] = current_netto
+        monthly_net_cashflow[month, :] = net_cashflow_month
+        monthly_cumulative_costs[month, :] = total_costs_paid
+        monthly_net_shortfall[month, :] = shortfall_month
 
-    # 7) Apply cashflows exactly at the horizon end marker (END of final month)
-    end_cashflow_net = 0.0
-    end_shortfall_net = 0.0
-    for cashflow in cashflows_end_of_horizon:
-        if cashflow.type == "storting":
-            current_bruto += cashflow.bedrag
-            current_netto += cashflow.bedrag
-            realized_deposits += cashflow.bedrag
-            end_cashflow_net += cashflow.bedrag
+    end_cashflow_net = np.zeros(N)
+    end_shortfall_net = np.zeros(N)
+    
+    for cf in cashflows_end_of_horizon:
+        if cf.type == "storting":
+            current_bruto += cf.bedrag
+            current_netto += cf.bedrag
+            realized_deposits += cf.bedrag
+            end_cashflow_net += cf.bedrag
         else:
-            current_bruto, paid_b, shortfall_b = _apply_withdrawal_request(requested=cashflow.bedrag, current_value=current_bruto)
-            current_netto, paid_n, shortfall_n = _apply_withdrawal_request(requested=cashflow.bedrag, current_value=current_netto)
-            realized_withdrawals_bruto += paid_b
-            realized_withdrawals_netto += paid_n
-            if shortfall_n > 0:
-                total_withdrawal_shortfall_netto += shortfall_n
-                has_withdrawal_shortfall = True
-            end_cashflow_net -= cashflow.bedrag
-            end_shortfall_net += shortfall_n
+            current_bruto, pb, sb = _apply_withdrawal_request_vectorized(cf.bedrag, current_bruto)
+            current_netto, pn, sn = _apply_withdrawal_request_vectorized(cf.bedrag, current_netto)
+            realized_withdrawals_bruto += pb
+            realized_withdrawals_netto += pn
+            total_withdrawal_shortfall_netto += sn
+            has_withdrawal_shortfall |= (sn > 0)
+            end_cashflow_net -= cf.bedrag
+            end_shortfall_net += sn
 
-    current_bruto = max(0.0, _safe_float(current_bruto))
-    current_netto = max(0.0, _safe_float(current_netto))
+    current_bruto = np.maximum(0.0, current_bruto)
+    current_netto = np.maximum(0.0, current_netto)
 
-    # Update final timeline point to reflect end-of-horizon cashflows
-    monthly_values_bruto[-1] = current_bruto
-    monthly_values_netto[-1] = current_netto
-    monthly_net_cashflow[-1] = _safe_float(monthly_net_cashflow[-1] + end_cashflow_net)
-    monthly_net_shortfall[-1] = _safe_float(monthly_net_shortfall[-1] + end_shortfall_net)
+    monthly_values_bruto[-1, :] = current_bruto
+    monthly_values_netto[-1, :] = current_netto
+    monthly_net_cashflow[-1, :] += end_cashflow_net
+    monthly_net_shortfall[-1, :] += end_shortfall_net
 
-    return _ScenarioResult(
-        end_value_bruto=current_bruto,
-        end_value_netto=current_netto,
-        realized_deposits=realized_deposits,
-        realized_withdrawals_bruto=realized_withdrawals_bruto,
-        realized_withdrawals_netto=realized_withdrawals_netto,
-        total_withdrawal_shortfall_netto=_safe_float(total_withdrawal_shortfall_netto),
-        has_withdrawal_shortfall=bool(has_withdrawal_shortfall),
-        total_costs_paid=_safe_float(total_costs_paid),
-        total_management_costs_paid=_safe_float(total_management_costs_paid),
-        total_fund_costs_paid=_safe_float(total_fund_costs_paid),
-        total_spread_costs_paid=_safe_float(total_spread_costs_paid),
-        costs_base_sum=_safe_float(costs_base_sum),
-        monthly_values_bruto=monthly_values_bruto,
-        monthly_values_netto=monthly_values_netto,
-        monthly_net_cashflow=monthly_net_cashflow,
-        monthly_cumulative_costs=monthly_cumulative_costs,
-        monthly_net_shortfall=monthly_net_shortfall,
-    )
+    return {
+        "end_values_bruto": current_bruto,
+        "end_values_netto": current_netto,
+        "monthly_paths_bruto": monthly_values_bruto,
+        "monthly_paths_netto": monthly_values_netto,
+        "monthly_net_cashflow": monthly_net_cashflow,
+        "monthly_cumulative_costs": monthly_cumulative_costs,
+        "monthly_net_shortfall": monthly_net_shortfall,
+        "realized_deposits": realized_deposits,
+        "realized_withdrawals_bruto": realized_withdrawals_bruto,
+        "realized_withdrawals_netto": realized_withdrawals_netto,
+        "total_costs_paid": total_costs_paid,
+        "total_management_costs_paid": total_management_costs_paid,
+        "total_fund_costs_paid": total_fund_costs_paid,
+        "total_spread_costs_paid": total_spread_costs_paid,
+        "costs_base_sum": costs_base_sum,
+        "has_withdrawal_shortfall": has_withdrawal_shortfall,
+        "total_withdrawal_shortfall_netto": total_withdrawal_shortfall_netto
+    }
 
 
 def bereken_kosten(inp: RekenInput) -> RekenOutput:
-    """Calculate projections under MiFID II compliance."""
+    """Calculate projections under MiFID II compliance, fully vectorized."""
 
-    # Initiele kosten schatting puur voor Jaar 1 weergave
     kosten_eur_jaar1 = _safe_float(_bereken_maandkosten(inp.startvermogen, inp.is_bloei_plus) * 12.0)
     kosten_pct_jaar1 = (
         _safe_float((kosten_eur_jaar1 / inp.startvermogen) * 100.0) if inp.startvermogen > 0 else 0.0
     )
 
-    # Assumpties (fallbacks) - Scenario 2 ORTEC data
     verwacht_rendement_by_profiel = (
         inp.custom_rendement_dict
         if inp.custom_rendement_dict is not None
@@ -527,8 +518,6 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         if cashflow.datum < inp.startdatum or cashflow.datum > end_date:
             continue
 
-        # Special-case: cashflow exactly at horizon end marker.
-        # Apply it at the END of the final simulated month so it is included in end wealth.
         if cashflow.datum == end_date:
             cashflows_end_of_horizon.append(cashflow)
             continue
@@ -553,56 +542,37 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     )
 
     rng = np.random.default_rng(seed=inp.rng_seed)
-    scenario_results: list[_ScenarioResult] = []
-    for _ in range(inp.n_scenarios):
-        scenario_results.append(
-            _simulate_single_scenario(
-                inp=inp,
-                total_months=total_months,
-                cashflows_by_month_begin=cashflows_by_month_begin,
-                cashflows_end_of_horizon=cashflows_end_of_horizon,
-                storting_start_idx=storting_start_idx,
-                storting_end_idx=storting_end_idx,
-                onttrekking_start_idx=onttrekking_start_idx,
-                onttrekking_end_idx=onttrekking_end_idx,
-                verwacht_rendement_by_profiel=verwacht_rendement_by_profiel,
-                volatiliteit_by_profiel=volatiliteit_by_profiel,
-                start_profiel=start_profiel,
-                rng=rng,
-            )
-        )
-
-    end_values_bruto_arr = np.array([r.end_value_bruto for r in scenario_results], dtype=float)
-    end_values_netto_arr = np.array([r.end_value_netto for r in scenario_results], dtype=float)
-
-    profits_bruto_arr = np.array(
-        [r.end_value_bruto - r.realized_deposits + r.realized_withdrawals_bruto for r in scenario_results],
-        dtype=float,
-    )
-    profits_netto_arr = np.array(
-        [r.end_value_netto - r.realized_deposits + r.realized_withdrawals_netto for r in scenario_results],
-        dtype=float,
+    
+    results = _simulate_all_scenarios(
+        inp=inp,
+        total_months=total_months,
+        cashflows_by_month_begin=cashflows_by_month_begin,
+        cashflows_end_of_horizon=cashflows_end_of_horizon,
+        storting_start_idx=storting_start_idx,
+        storting_end_idx=storting_end_idx,
+        onttrekking_start_idx=onttrekking_start_idx,
+        onttrekking_end_idx=onttrekking_end_idx,
+        verwacht_rendement_by_profiel=verwacht_rendement_by_profiel,
+        volatiliteit_by_profiel=volatiliteit_by_profiel,
+        start_profiel=start_profiel,
+        rng=rng,
     )
 
-    monthly_paths_bruto_arr = np.array([r.monthly_values_bruto for r in scenario_results], dtype=float)
-    monthly_paths_netto_arr = np.array([r.monthly_values_netto for r in scenario_results], dtype=float)
-    monthly_net_cashflow_arr = np.array([r.monthly_net_cashflow for r in scenario_results], dtype=float)
-    monthly_net_shortfall_arr = np.array([r.monthly_net_shortfall for r in scenario_results], dtype=float)
-    total_costs_paid_arr = np.array([r.total_costs_paid for r in scenario_results], dtype=float)
-    total_management_costs_paid_arr = np.array([r.total_management_costs_paid for r in scenario_results], dtype=float)
-    total_fund_costs_paid_arr = np.array([r.total_fund_costs_paid for r in scenario_results], dtype=float)
-    total_spread_costs_paid_arr = np.array([r.total_spread_costs_paid for r in scenario_results], dtype=float)
-    costs_base_sum_arr = np.array([r.costs_base_sum for r in scenario_results], dtype=float)
-    monthly_cumulative_costs_arr = np.array([r.monthly_cumulative_costs for r in scenario_results], dtype=float)
+    end_values_bruto_arr = results["end_values_bruto"]
+    end_values_netto_arr = results["end_values_netto"]
 
-    shortfall_arr = np.array([r.total_withdrawal_shortfall_netto for r in scenario_results], dtype=float)
-    failed_arr = np.array([1.0 if r.has_withdrawal_shortfall else 0.0 for r in scenario_results], dtype=float)
+    profits_bruto_arr = end_values_bruto_arr - results["realized_deposits"] + results["realized_withdrawals_bruto"]
+    profits_netto_arr = end_values_netto_arr - results["realized_deposits"] + results["realized_withdrawals_netto"]
 
-    # Stats (p50 mediaan conform MiFID II)
+    monthly_paths_bruto_arr = results["monthly_paths_bruto"]
+    monthly_paths_netto_arr = results["monthly_paths_netto"]
+    monthly_net_cashflow_arr = results["monthly_net_cashflow"]
+    monthly_net_shortfall_arr = results["monthly_net_shortfall"]
+    monthly_cumulative_costs_arr = results["monthly_cumulative_costs"]
+
     verwacht_eindvermogen_bruto = _safe_stat_percentile(end_values_bruto_arr, 50)
     verwacht_eindvermogen_netto = _safe_stat_percentile(end_values_netto_arr, 50)
 
-    # Percentiles for end values (netto)
     verwacht_eindvermogen_p10_netto = _safe_stat_percentile(end_values_netto_arr, 10)
     verwacht_eindvermogen_p20_netto = _safe_stat_percentile(end_values_netto_arr, 20)
     verwacht_eindvermogen_p40_netto = _safe_stat_percentile(end_values_netto_arr, 40)
@@ -614,13 +584,13 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     verwachte_winst_bruto = _safe_stat_percentile(profits_bruto_arr, 50)
     verwachte_winst_netto = _safe_stat_percentile(profits_netto_arr, 50)
 
-    totale_kosten_betaald = _safe_stat_percentile(total_costs_paid_arr, 50)
+    totale_kosten_betaald = _safe_stat_percentile(results["total_costs_paid"], 50)
     totale_kosten_impact = max(0.0, verwachte_winst_bruto - verwachte_winst_netto)
     misgelopen_rendement_op_kosten = max(0.0, totale_kosten_impact - totale_kosten_betaald)
-    totale_beheerkosten_betaald = _safe_stat_percentile(total_management_costs_paid_arr, 50)
-    totale_fondskosten_betaald = _safe_stat_percentile(total_fund_costs_paid_arr, 50)
-    totale_spreadkosten_betaald = _safe_stat_percentile(total_spread_costs_paid_arr, 50)
-    costs_base_sum = _safe_stat_percentile(costs_base_sum_arr, 50)
+    totale_beheerkosten_betaald = _safe_stat_percentile(results["total_management_costs_paid"], 50)
+    totale_fondskosten_betaald = _safe_stat_percentile(results["total_fund_costs_paid"], 50)
+    totale_spreadkosten_betaald = _safe_stat_percentile(results["total_spread_costs_paid"], 50)
+    costs_base_sum = _safe_stat_percentile(results["costs_base_sum"], 50)
     
     if costs_base_sum > 0:
         gemiddelde_beheerkosten_pct = _safe_float((totale_beheerkosten_betaald * 12.0 / costs_base_sum) * 100.0)
@@ -634,38 +604,23 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         gemiddelde_beheerkosten_pct + gemiddelde_fondskosten_pct + gemiddelde_spreadkosten_pct
     )
 
-    faalkans = float(np.clip(_safe_stat_mean(failed_arr), 0.0, 1.0))
-    verwacht_onttrekkingstekort = _safe_stat_mean(shortfall_arr)
+    faalkans = float(np.clip(np.mean(results["has_withdrawal_shortfall"]), 0.0, 1.0))
+    verwacht_onttrekkingstekort = _safe_stat_mean(results["total_withdrawal_shortfall_netto"])
 
-    # Timelines
-    tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.percentile(monthly_paths_bruto_arr, 50, axis=0)]
-    tijdlijn_vermogen_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=0)]
+    tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.percentile(monthly_paths_bruto_arr, 50, axis=1)]
+    tijdlijn_vermogen_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=1)]
 
-    # Percentile timelines for netto vermogen
-    tijdlijn_vermogen_p10_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 10, axis=0)
-    ]
-    tijdlijn_vermogen_p20_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 20, axis=0)
-    ]
-    tijdlijn_vermogen_p40_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 40, axis=0)
-    ]
-    tijdlijn_vermogen_p50_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=0)
-    ]
-    tijdlijn_vermogen_p60_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 60, axis=0)
-    ]
-    tijdlijn_vermogen_p80_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 80, axis=0)
-    ]
-    tijdlijn_vermogen_p90_netto = [
-        _safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 90, axis=0)
-    ]
-    tijdlijn_cashflow_netto = [_safe_float(x) for x in np.mean(monthly_net_cashflow_arr, axis=0)]
-    tijdlijn_kosten_cumulatief = [_safe_float(x) for x in np.mean(monthly_cumulative_costs_arr, axis=0)]
-    tijdlijn_tekort = [_safe_float(x) for x in np.mean(monthly_net_shortfall_arr, axis=0)]
+    tijdlijn_vermogen_p10_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 10, axis=1)]
+    tijdlijn_vermogen_p20_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 20, axis=1)]
+    tijdlijn_vermogen_p40_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 40, axis=1)]
+    tijdlijn_vermogen_p50_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=1)]
+    tijdlijn_vermogen_p60_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 60, axis=1)]
+    tijdlijn_vermogen_p80_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 80, axis=1)]
+    tijdlijn_vermogen_p90_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 90, axis=1)]
+    
+    tijdlijn_cashflow_netto = [_safe_float(x) for x in np.mean(monthly_net_cashflow_arr, axis=1)]
+    tijdlijn_kosten_cumulatief = [_safe_float(x) for x in np.mean(monthly_cumulative_costs_arr, axis=1)]
+    tijdlijn_tekort = [_safe_float(x) for x in np.mean(monthly_net_shortfall_arr, axis=1)]
 
     tijdlijn_datums = [_add_months(inp.startdatum, month) for month in range(0, total_months + 1)]
     tijdlijn_profiel = [start_profiel]
@@ -722,3 +677,4 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         tijdlijn_kosten_cumulatief=tijdlijn_kosten_cumulatief,
         tijdlijn_tekort=tijdlijn_tekort,
     )
+    
