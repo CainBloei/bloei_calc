@@ -2,6 +2,7 @@ import { Sidebar } from './components/Sidebar';
 import { ResultsView } from './components/ResultsView';
 import { VermogenChart } from './components/VermogenChart';
 import { ComponentChart } from './components/ComponentChart';
+import { VerdelingChart } from './components/VerdelingChart';
 import { useCalculate } from './hooks/useCalculate';
 import { useState } from 'react';
 
@@ -66,6 +67,8 @@ function App() {
               <ResultsView data={data} />
               <ComponentChart data={data} startvermogen={startvermogen} />
               <VermogenChart data={data} />
+              {/* S-Curve grafiek onder de VermogenChart */}
+              <VerdelingChart data={data} />
             </div>
           )}
 

@@ -607,6 +607,11 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     faalkans = float(np.clip(np.mean(results["has_withdrawal_shortfall"]), 0.0, 1.0))
     verwacht_onttrekkingstekort = _safe_stat_mean(results["total_withdrawal_shortfall_netto"])
 
+    # Genereer de verdeling van het eindvermogen (percentiel 1 t/m 99)
+    verdeling_eindvermogen_percentielen = [
+        _safe_float(x) for x in np.percentile(end_values_netto_arr, range(1, 100))
+    ]
+
     tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.percentile(monthly_paths_bruto_arr, 50, axis=1)]
     tijdlijn_vermogen_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=1)]
 
@@ -662,6 +667,8 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         faalkans=max(0.0, min(1.0, _safe_float(faalkans))),
         verwacht_onttrekkingstekort=max(0.0, _safe_float(verwacht_onttrekkingstekort)),
 
+        verdeling_eindvermogen_percentielen=verdeling_eindvermogen_percentielen,
+
         tijdlijn_datums=tijdlijn_datums,
         tijdlijn_vermogen_bruto=tijdlijn_vermogen_bruto,
         tijdlijn_vermogen_netto=tijdlijn_vermogen_netto,
@@ -677,4 +684,3 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         tijdlijn_kosten_cumulatief=tijdlijn_kosten_cumulatief,
         tijdlijn_tekort=tijdlijn_tekort,
     )
-    

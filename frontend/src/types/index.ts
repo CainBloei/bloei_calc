@@ -71,4 +71,5 @@ export interface RekenOutput {
   tijdlijn_cashflow_netto: number[];
   tijdlijn_kosten_cumulatief: number[];
   tijdlijn_tekort?: number[]; // Optioneel: tekort per maand (backend stuurt dit mee)
+  verdeling_eindvermogen_percentielen?: number[]; // P1..P99 voor S-curve grafiek
 }

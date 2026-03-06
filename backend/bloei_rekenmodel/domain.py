@@ -156,6 +156,9 @@ class RekenOutput(BaseModel):
     faalkans: float
     verwacht_onttrekkingstekort: float
     
+    # Verdeling voor de S-curve (percentielen 1 t/m 99)
+    verdeling_eindvermogen_percentielen: List[float]
+    
     tijdlijn_datums: List[date]
     tijdlijn_vermogen_bruto: List[float]
     tijdlijn_vermogen_netto: List[float]
@@ -170,3 +173,4 @@ class RekenOutput(BaseModel):
     tijdlijn_cashflow_netto: List[float]
     tijdlijn_kosten_cumulatief: List[float]
     tijdlijn_tekort: List[float]
+    
