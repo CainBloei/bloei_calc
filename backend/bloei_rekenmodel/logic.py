@@ -59,7 +59,7 @@ def _clamp_period_to_month_indices(
     start_idx = max(1, min(total_months, _month_index_bucket(startdatum, s)))
     end_idx = max(1, min(total_months, _month_index_bucket(startdatum, e)))
     if end_idx < start_idx:
-        end_idx = start_idx
+        return (1, 0)
     return (start_idx, end_idx)
 
 
