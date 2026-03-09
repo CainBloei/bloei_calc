@@ -1,14 +1,26 @@
 import { Sidebar } from './components/Sidebar';
 import { ResultsView } from './components/ResultsView';
-import { VermogenChart } from './components/VermogenChart';
-import { ComponentChart } from './components/ComponentChart';
-import { VerdelingChart } from './components/VerdelingChart';
 import { useCalculate } from './hooks/useCalculate';
 import { useState } from 'react';
+import { Download, Loader2 } from 'lucide-react';
+import { generateReportPdf } from './lib/generateReportPdf';
 
 function App() {
   const { calculate, data, isLoading, error } = useCalculate();
   const [startvermogen, setStartvermogen] = useState(100000);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const handleDownloadPDF = async () => {
+    if (!data) return;
+    setIsExporting(true);
+    try {
+      await generateReportPdf(data, startvermogen);
+    } catch (err) {
+      console.error('Fout bij genereren PDF:', err);
+    } finally {
+      setIsExporting(false);
+    }
+  };
 
   const handleCalculate = (inputData: any) => {
     setStartvermogen(Number(inputData.startvermogen));
@@ -22,13 +34,29 @@ function App() {
       <main className="flex-1 overflow-y-auto">
         <div className="max-w-6xl mx-auto p-8">
           
-          <header className="mb-8">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
-              Resultaten
-            </h2>
-            <p className="text-gray-500 dark:text-gray-400 mt-2">
-              Vul de parameters in de zijbalk in om de vermogensopbouw te berekenen.
-            </p>
+          <header className="mb-8 flex flex-row items-start justify-between gap-4">
+            <div>
+              <h2 className="text-3xl font-bold text-gray-900 dark:text-white tracking-tight">
+                Resultaten
+              </h2>
+              <p className="text-gray-500 dark:text-gray-400 mt-2">
+                Vul de parameters in de zijbalk in om de vermogensopbouw te berekenen.
+              </p>
+            </div>
+            {data && !isLoading && (
+              <button
+                onClick={handleDownloadPDF}
+                disabled={isExporting}
+                className="flex items-center gap-2 px-4 py-2 bg-[#0d9488] text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
+              >
+                {isExporting ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <Download size={18} />
+                )}
+                {isExporting ? 'PDF Genereren...' : 'Download als PDF'}
+              </button>
+            )}
           </header>
 
           {error && (
@@ -64,11 +92,7 @@ function App() {
 
           {data && !isLoading && (
             <div className="space-y-8 animate-in fade-in duration-500">
-              <ResultsView data={data} />
-              <ComponentChart data={data} startvermogen={startvermogen} />
-              <VermogenChart data={data} />
-              {/* S-Curve grafiek onder de VermogenChart */}
-              <VerdelingChart data={data} />
+              <ResultsView data={data} startvermogen={startvermogen} />
             </div>
           )}
 

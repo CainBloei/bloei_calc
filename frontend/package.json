@@ -22,6 +22,8 @@
     "react-currency-input-field": "^4.0.3",
     "react-dom": "^19.2.0",
     "react-hook-form": "^7.71.2",
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.3",
     "recharts": "^3.7.0",
     "tailwind-merge": "^3.5.0",
     "tailwindcss": "^4.2.1",
