@@ -102,10 +102,7 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
           color: (context: any) => {
             if (!context || context.tick === undefined) return 'transparent';
             
-            const isDark = 
-              document.documentElement.classList.contains('dark') || 
-              document.body.classList.contains('dark') ||
-              (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            const isDark = document.documentElement.classList.contains('dark');
             
             // De 0-lijn
             if (Math.abs(context.tick.value) < 1) {
@@ -143,10 +140,7 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
           color: (context: any) => {
             if (context.index === 0) return 'transparent';
             
-            const isDark = 
-              document.documentElement.classList.contains('dark') || 
-              document.body.classList.contains('dark') ||
-              (window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+            const isDark = document.documentElement.classList.contains('dark');
             
             return isDark ? '#333333' : '#e5e7eb'; 
           },
