@@ -2,23 +2,37 @@ import { Sidebar } from './components/Sidebar';
 import { ResultsView } from './components/ResultsView';
 import { useCalculate } from './hooks/useCalculate';
 import { useState } from 'react';
-import { Download, Loader2 } from 'lucide-react';
+import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { generateReportPdf } from './lib/generateReportPdf';
+import { generateReportExcel } from './lib/generateReportExcel';
 
 function App() {
   const { calculate, data, isLoading, error } = useCalculate();
   const [startvermogen, setStartvermogen] = useState(100000);
-  const [isExporting, setIsExporting] = useState(false);
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleDownloadPDF = async () => {
     if (!data) return;
-    setIsExporting(true);
+    setIsExportingPdf(true);
     try {
       await generateReportPdf(data, startvermogen);
     } catch (err) {
       console.error('Fout bij genereren PDF:', err);
     } finally {
-      setIsExporting(false);
+      setIsExportingPdf(false);
+    }
+  };
+
+  const handleDownloadExcel = async () => {
+    if (!data) return;
+    setIsExportingExcel(true);
+    try {
+      generateReportExcel(data, startvermogen);
+    } catch (err) {
+      console.error('Fout bij genereren Excel:', err);
+    } finally {
+      setIsExportingExcel(false);
     }
   };
 
@@ -45,18 +59,32 @@ function App() {
             </div>
             <div className="flex items-center gap-2 shrink-0">
               {data && !isLoading && (
-              <button
-                onClick={handleDownloadPDF}
-                disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 bg-bloei-petrol text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
-              >
-                {isExporting ? (
-                  <Loader2 size={18} className="animate-spin" />
-                ) : (
-                  <Download size={18} />
-                )}
-                {isExporting ? 'PDF Genereren...' : 'Download als PDF'}
-              </button>
+              <>
+                <button
+                  onClick={handleDownloadExcel}
+                  disabled={isExportingExcel || isExportingPdf}
+                  className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 dark:bg-neutral-800 dark:text-gray-200 font-medium rounded-lg border border-gray-200 dark:border-neutral-700 hover:bg-gray-50 dark:hover:bg-neutral-700 transition-colors shadow-sm cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
+                >
+                  {isExportingExcel ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <FileSpreadsheet size={18} className="text-bloei-petrol" />
+                  )}
+                  {isExportingExcel ? 'Bezig...' : 'Export Excel'}
+                </button>
+                <button
+                  onClick={handleDownloadPDF}
+                  disabled={isExportingPdf || isExportingExcel}
+                  className="flex items-center gap-2 px-4 py-2 bg-bloei-petrol text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm cursor-pointer disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
+                >
+                  {isExportingPdf ? (
+                    <Loader2 size={18} className="animate-spin" />
+                  ) : (
+                    <Download size={18} />
+                  )}
+                  {isExportingPdf ? 'PDF Genereren...' : 'Download als PDF'}
+                </button>
+              </>
               )}
             </div>
           </header>
