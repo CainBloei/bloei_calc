@@ -51,7 +51,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen })
             title="Verwacht Eindvermogen" 
             value={formatCurrency(data.verwacht_eindvermogen_netto)} 
             subtitle="Netto"
-            className="border-l-4 border-l-[#0d9488]"
+            className="border-l-4 border-l-bloei-petrol"
           />
           <MetricCard 
             title="Verwacht Rendement" 

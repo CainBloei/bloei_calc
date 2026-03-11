@@ -47,7 +47,7 @@ function App() {
               <button
                 onClick={handleDownloadPDF}
                 disabled={isExporting}
-                className="flex items-center gap-2 px-4 py-2 bg-[#0d9488] text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
+                className="flex items-center gap-2 px-4 py-2 bg-bloei-petrol text-white font-medium rounded-lg hover:bg-teal-700 transition-colors shadow-sm disabled:opacity-70 disabled:cursor-not-allowed shrink-0"
               >
                 {isExporting ? (
                   <Loader2 size={18} className="animate-spin" />

@@ -23,6 +23,7 @@ const CurrencyField = ({ name, control, prefix = "€ ", decimalsLimit = 2 }: { 
         value={value === 0 ? '' : value}
         // ...maar we tonen wel een nette placeholder zodat de gebruiker snapt dat leeg "0" betekent.
         placeholder={`${prefix}0`} 
+        allowNegativeValue={false} 
         decimalsLimit={decimalsLimit}
         onValueChange={(val) => onChange(val === undefined ? 0 : Number(val))}
         prefix={prefix}
