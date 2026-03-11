@@ -7,6 +7,14 @@
     <title>Bloei Rekenmodule</title>
   </head>
   <body>
+    <script>
+      (function() {
+        var t = localStorage.getItem('bloei-theme');
+        var dark = t === 'dark' || (t !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
+        if (dark) document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      })();
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

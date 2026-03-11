@@ -44,7 +44,7 @@ interface ResultsViewProps {
 
 export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen }) => {
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 bg-white dark:bg-transparent p-1">
+    <div className="space-y-8 animate-in fade-in duration-500 bg-gray-50 dark:bg-transparent p-1">
         {/* Top Metrics Row */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <MetricCard 

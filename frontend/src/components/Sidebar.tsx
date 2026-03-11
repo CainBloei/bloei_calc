@@ -4,6 +4,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { format } from 'date-fns';
 import { Plus, Trash2 } from 'lucide-react';
+import { Settings } from './Settings';
 import type { RekenInput } from '../types';
 import CurrencyInput from 'react-currency-input-field';
 import { Controller } from 'react-hook-form';
@@ -102,12 +103,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
   const labelClass = "block text-sm font-medium mb-1 dark:text-gray-300";
 
   return (
-    <div className="w-90 bg-gray-50 dark:bg-neutral-950 border-r dark:border-neutral-800 h-screen overflow-y-auto flex flex-col">
+    <div className="w-90 bg-gray-50 dark:bg-neutral-950 border-r dark:border-neutral-800 h-screen flex flex-col">
       <div className="p-4 bg-bloei-petrol text-white shrink-0 dark:text-gray-300">
         <h1 className="text-xl font-bold">Bloei Rekenmodule</h1>
       </div>
 
-      <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-6 flex-1">
+      <form onSubmit={handleSubmit(onSubmit)} className="p-4 space-y-6 flex-1 overflow-y-auto">
         
         {/* Basisinvoer */}
         <section className="space-y-4">
@@ -252,33 +253,36 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
           )}
         </section>
 
+        {/* Eenmalige Cashflows + Simulatie Settings - wrapper controls gap when list empty */}
+        <div className={fields.length === 0 ? 'space-y-2' : 'space-y-6'}>
         {/* Eenmalige Cashflows */}
         <section className="space-y-4">
-          <div className="flex items-center justify-between border-b pb-2">
+          <div className={`flex items-center justify-between ${fields.length > 0 ? 'border-b pb-2' : 'pb-0'}`}>
             <h2 className="text-lg font-semibold text-bloei-petrol dark:text-bloei-petrol">Eenmalig</h2>
             <button 
               type="button" 
               onClick={() => append({ bedrag: 0, datum: format(new Date(), 'yyyy-MM-dd'), type: 'storting' })}
-              className="text-bloei-petrol hover:text-bloei-pink cursor-pointer"
+              className="text-bloei-petrol hover:text-teal-700 cursor-pointer"
             >
               <Plus size={20} />
             </button>
           </div>
 
+          {fields.length > 0 && (
           <div className="space-y-3">
             {fields.map((field, index) => (
               <div key={field.id} className="p-3 bg-white dark:bg-[#000000] rounded border dark:border-neutral-600 relative group">
                 <button 
                   type="button" 
                   onClick={() => remove(index)}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-red-500"
+                  className="absolute top-2 right-2 text-gray-400 hover:text-teal-700 cursor-pointer"
                 >
                   <Trash2 size={16} />
                 </button>
                 <div className="space-y-2 pr-6">
                   <div>
                     <label className="text-xs text-gray-500">Type</label>
-                    <select {...register(`eenmalige_cashflows.${index}.type` as const)} className={`${inputClass} text-sm py-1`}>
+                    <select {...register(`eenmalige_cashflows.${index}.type` as const)} className={`${inputClass} text-sm py-1 cursor-pointer`}>
                       <option value="storting">Storting</option>
                       <option value="onttrekking">Onttrekking</option>
                     </select>
@@ -299,6 +303,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
               </div>
             ))}
           </div>
+          )}
         </section>
 
         {/* Simulatie Settings */}
@@ -308,15 +313,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
             <CurrencyField name="n_scenarios" control={control} prefix="" decimalsLimit={0} />
           </div>
         </section>
+        </div>
 
         <button 
           type="submit" 
           disabled={isLoading}
-          className="w-full py-3 bg-bloei-petrol hover:bg-bloei-pink text-white rounded font-bold shadow transition-colors disabled:opacity-50 mt-8 cursor-pointer disabled:cursor-not-allowed"
+          className="w-full py-3 bg-bloei-petrol hover:bg-teal-700 text-white rounded font-bold shadow transition-colors disabled:opacity-50 mt-8 cursor-pointer disabled:cursor-not-allowed"
         >
           {isLoading ? 'Berekenen...' : 'Bereken resultaat'}
         </button>
       </form>
+
+      <div className="p-4 shrink-0 border-t border-gray-200 dark:border-neutral-800">
+        <Settings />
+      </div>
     </div>
   );
 };
