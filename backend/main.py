@@ -21,7 +21,9 @@ app = FastAPI(title="Bloei Rekenmodule API")
 
 # Instellen van de API Sleutel controle voor het /calculate endpoint
 API_KEY_NAME = "X-API-Key"
-API_KEY = os.getenv("API_KEY", "lokale_ontwikkel_sleutel_123!") 
+API_KEY = os.getenv("API_KEY")
+if not API_KEY:
+    raise RuntimeError("API_KEY environment variable is not configured. Backend cannot start securely.")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
 
 async def get_api_key(api_key: str = Security(api_key_header)):

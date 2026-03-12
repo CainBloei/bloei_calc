@@ -56,8 +56,11 @@ export function useCalculate() {
     try {
       const baseURL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000';
       
-      // 1. Haal de API-sleutel op uit de omgeving, of gebruik de lokale test-sleutel
-      const apiKey = import.meta.env.VITE_API_KEY || 'lokale_ontwikkel_sleutel_123!';
+      // 1. Haal de API-sleutel op uit de omgeving
+      const apiKey = import.meta.env.VITE_API_KEY;
+      if (!apiKey) {
+        throw new Error("VITE_API_KEY is not configured.");
+      }
 
       // 2. Stuur de sleutel mee in de headers van het POST-verzoek
       const response = await axios.post<RekenOutput>(`${baseURL}/calculate`, input, {
