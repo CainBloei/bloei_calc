@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 from math import sqrt
+from typing import TypedDict
 import calendar
 
 import numpy as np
@@ -86,11 +86,14 @@ _PROFIEL_ORDER_MOST_OFFENSIVE_TO_DEFENSIVE = [
     "Niet beleggen",
 ]
 
+_PROFIEL_RANK: dict[str, int] = {
+    p: i for i, p in enumerate(_PROFIEL_ORDER_MOST_OFFENSIVE_TO_DEFENSIVE)
+}
+
 
 def _more_defensive_profiel(a: str, b: str) -> str:
-    rank = {p: i for i, p in enumerate(_PROFIEL_ORDER_MOST_OFFENSIVE_TO_DEFENSIVE)}
-    ra = rank.get(a, rank["Niet beleggen"])
-    rb = rank.get(b, rank["Niet beleggen"])
+    ra = _PROFIEL_RANK.get(a, _PROFIEL_RANK["Niet beleggen"])
+    rb = _PROFIEL_RANK.get(b, _PROFIEL_RANK["Niet beleggen"])
     return a if ra >= rb else b
 
 
@@ -118,6 +121,26 @@ def _safe_stat_percentile(values: np.ndarray, pct: float) -> float:
 
 
 # --- NIEUWE GEVECTORISEERDE HELPERS ---
+
+class SimulationResult(TypedDict):
+    end_values_bruto: np.ndarray
+    end_values_netto: np.ndarray
+    monthly_paths_bruto: np.ndarray
+    monthly_paths_netto: np.ndarray
+    monthly_net_cashflow: np.ndarray
+    monthly_cumulative_costs: np.ndarray
+    monthly_net_shortfall: np.ndarray
+    realized_deposits: np.ndarray
+    realized_withdrawals_bruto: np.ndarray
+    realized_withdrawals_netto: np.ndarray
+    total_costs_paid: np.ndarray
+    total_management_costs_paid: np.ndarray
+    total_fund_costs_paid: np.ndarray
+    total_spread_costs_paid: np.ndarray
+    costs_base_sum: np.ndarray
+    has_withdrawal_shortfall: np.ndarray
+    total_withdrawal_shortfall_netto: np.ndarray
+
 
 def _apply_withdrawal_request_vectorized(requested: float, current_values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     req = max(0.0, float(requested))
@@ -191,7 +214,7 @@ def _simulate_all_scenarios(
     volatiliteit_by_profiel: dict[str, float],
     start_profiel: str,
     rng: np.random.Generator,
-) -> dict:
+) -> SimulationResult:
     N = inp.n_scenarios
     
     current_bruto = np.full(N, float(inp.startvermogen))
@@ -236,6 +259,14 @@ def _simulate_all_scenarios(
     growth_matrix = 1.0 + r_matrix
 
     for month in range(1, total_months + 1):
+        # Intra-month volgorde (bewuste keuze):
+        #   1. Eenmalige cashflows (begin-van-maand)  → verdienen rendement deze maand
+        #   2. Rendement (groei)
+        #   3. Kosten (afgetrokken van netto)
+        #   4. Periodieke stortingen (eind-van-maand) → verdienen GEEN rendement deze maand
+        #   5. Periodieke onttrekkingen (eind-van-maand)
+        # Dit betekent dat eenmalige stortingen meer kosten/rendement genereren dan periodieke
+        # stortingen in dezelfde maand; dit is de standaard begin/eind-van-maand conventie.
         net_cashflow_month = np.zeros(N)
         shortfall_month = np.zeros(N)
 
@@ -256,7 +287,7 @@ def _simulate_all_scenarios(
                 shortfall_month += sn
 
         if not is_niet_beleggen[month-1]:
-            growth = growth_matrix[month-1]
+            growth = np.maximum(growth_matrix[month-1], -1.0)
             current_bruto = np.where(current_bruto > 0, current_bruto * growth, current_bruto)
             current_netto = np.where(current_netto > 0, current_netto * growth, current_netto)
 
@@ -353,15 +384,6 @@ def _simulate_all_scenarios(
 def bereken_kosten(inp: RekenInput) -> RekenOutput:
     """Calculate projections under MiFID II compliance, fully vectorized."""
 
-    # Gebruik de gevectoriseerde versie voor de initiële jaar 1 kostenweergave
-    beheer_j1, fonds_j1, spread_j1 = _bereken_maandkosten_componenten_vectorized(
-        np.array([float(inp.startvermogen)]), inp.is_bloei_plus
-    )
-    kosten_eur_jaar1 = _safe_float((beheer_j1[0] + fonds_j1[0] + spread_j1[0]) * 12.0)
-    kosten_pct_jaar1 = (
-        _safe_float((kosten_eur_jaar1 / inp.startvermogen) * 100.0) if inp.startvermogen > 0 else 0.0
-    )
-
     verwacht_rendement_by_profiel = (
         inp.custom_rendement_dict
         if inp.custom_rendement_dict is not None
@@ -451,6 +473,13 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     monthly_net_cashflow_arr = results["monthly_net_cashflow"]
     monthly_net_shortfall_arr = results["monthly_net_shortfall"]
     monthly_cumulative_costs_arr = results["monthly_cumulative_costs"]
+
+    # Kosten 1e jaar: mediaan van de werkelijke cumulatieve kosten na 12 maanden
+    year1_end_idx = min(12, total_months)
+    kosten_eur_jaar1 = _safe_float(float(np.median(monthly_cumulative_costs_arr[year1_end_idx, :])))
+    kosten_pct_jaar1 = (
+        _safe_float((kosten_eur_jaar1 / inp.startvermogen) * 100.0) if inp.startvermogen > 0 else 0.0
+    )
 
     verwacht_eindvermogen_bruto = _safe_stat_percentile(end_values_bruto_arr, 50)
     verwacht_eindvermogen_netto = _safe_stat_percentile(end_values_netto_arr, 50)

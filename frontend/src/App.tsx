@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { Download, FileSpreadsheet, Loader2 } from 'lucide-react';
 import { generateReportPdf } from './lib/generateReportPdf';
 import { generateReportExcel } from './lib/generateReportExcel';
+import type { RekenInput } from './types';
 
 function App() {
   const { calculate, data, isLoading, error } = useCalculate();
@@ -36,7 +37,7 @@ function App() {
     }
   };
 
-  const handleCalculate = (inputData: any) => {
+  const handleCalculate = (inputData: RekenInput) => {
     setStartvermogen(Number(inputData.startvermogen));
     calculate(inputData);
   }

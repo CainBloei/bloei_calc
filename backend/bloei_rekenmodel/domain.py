@@ -1,7 +1,8 @@
 """Domain models for the Bloei Rekenmodule calculation engine."""
 
+from __future__ import annotations
+
 from datetime import date
-from typing import List, Optional, Dict
 from pydantic import BaseModel, Field, model_validator
 
 
@@ -59,7 +60,7 @@ class RekenInput(BaseModel):
     startdatum: date
     horizon_jaren: int = Field(
         ..., ge=1, le=MAX_HORIZON_JAREN,
-        description=f"horizon_jaren moet tussen 0 en {MAX_HORIZON_JAREN} zijn."
+        description=f"horizon_jaren moet tussen 1 en {MAX_HORIZON_JAREN} zijn."
     )
     n_scenarios: int = Field(
         ..., ge=1, le=MAX_N_SCENARIOS,
@@ -73,11 +74,11 @@ class RekenInput(BaseModel):
         0.0, ge=0, le=MAX_MONETARY_EUR,
         description="periodieke_onttrekking_maandelijks moet >= 0 zijn."
     )
-    periodieke_storting_startdatum: Optional[date] = None
-    periodieke_storting_einddatum: Optional[date] = None
-    periodieke_onttrekking_startdatum: Optional[date] = None
-    periodieke_onttrekking_einddatum: Optional[date] = None
-    eenmalige_cashflows: List[EenmaligeCashflow] = Field(
+    periodieke_storting_startdatum: date | None = None
+    periodieke_storting_einddatum: date | None = None
+    periodieke_onttrekking_startdatum: date | None = None
+    periodieke_onttrekking_einddatum: date | None = None
+    eenmalige_cashflows: list[EenmaligeCashflow] = Field(
         default_factory=list, max_length=MAX_EENMALIGE_CASHFLOWS
     )
 
@@ -85,8 +86,8 @@ class RekenInput(BaseModel):
     is_bloei_plus: bool = False  # standaard Bloei
     rng_seed: int = Field(42, ge=0, le=2**31 - 1)
 
-    custom_rendement_dict: Optional[Dict[str, float]] = None
-    custom_volatiliteit_dict: Optional[Dict[str, float]] = None
+    custom_rendement_dict: dict[str, float] | None = None
+    custom_volatiliteit_dict: dict[str, float] | None = None
 
     @model_validator(mode="after")
     def validate_profiel(self) -> 'RekenInput':
@@ -157,20 +158,20 @@ class RekenOutput(BaseModel):
     verwacht_onttrekkingstekort: float
     
     # Verdeling voor de S-curve (percentielen 1 t/m 99)
-    verdeling_eindvermogen_percentielen: List[float]
+    verdeling_eindvermogen_percentielen: list[float]
     
-    tijdlijn_datums: List[date]
-    tijdlijn_vermogen_bruto: List[float]
-    tijdlijn_vermogen_netto: List[float]
-    tijdlijn_vermogen_p10_netto: List[float]
-    tijdlijn_vermogen_p20_netto: List[float]
-    tijdlijn_vermogen_p40_netto: List[float]
-    tijdlijn_vermogen_p50_netto: List[float]
-    tijdlijn_vermogen_p60_netto: List[float]
-    tijdlijn_vermogen_p80_netto: List[float]
-    tijdlijn_vermogen_p90_netto: List[float]
-    tijdlijn_profiel: List[str]
-    tijdlijn_cashflow_netto: List[float]
-    tijdlijn_kosten_cumulatief: List[float]
-    tijdlijn_tekort: List[float]
+    tijdlijn_datums: list[date]
+    tijdlijn_vermogen_bruto: list[float]
+    tijdlijn_vermogen_netto: list[float]
+    tijdlijn_vermogen_p10_netto: list[float]
+    tijdlijn_vermogen_p20_netto: list[float]
+    tijdlijn_vermogen_p40_netto: list[float]
+    tijdlijn_vermogen_p50_netto: list[float]
+    tijdlijn_vermogen_p60_netto: list[float]
+    tijdlijn_vermogen_p80_netto: list[float]
+    tijdlijn_vermogen_p90_netto: list[float]
+    tijdlijn_profiel: list[str]
+    tijdlijn_cashflow_netto: list[float]
+    tijdlijn_kosten_cumulatief: list[float]
+    tijdlijn_tekort: list[float]
     

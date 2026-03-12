@@ -1,4 +1,4 @@
-# Bloei Rekenmodule – React & FastAPI Migration
+# Bloei Rekenmodule – React & FastAPI
 
 A full-stack application for calculating investment fees and long-term average costs for Bloei Vermogen, rebuilt with React (Vite) and FastAPI.
 
