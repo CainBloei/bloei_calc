@@ -293,55 +293,7 @@ def _simulate_all_scenarios(
 
     monthly_values_bruto[0, :] = current_bruto
     monthly_values_netto[0, :] = current_netto
-
-    if total_months == 0:
-        end_cashflow_net = np.zeros(N)
-        end_shortfall_net = np.zeros(N)
-        
-        for cf in cashflows_end_of_horizon:
-            if cf.type == "storting":
-                current_bruto += cf.bedrag
-                current_netto += cf.bedrag
-                realized_deposits += cf.bedrag
-                end_cashflow_net += cf.bedrag
-            else:
-                current_bruto, pb, sb = _apply_withdrawal_request_vectorized(cf.bedrag, current_bruto)
-                current_netto, pn, sn = _apply_withdrawal_request_vectorized(cf.bedrag, current_netto)
-                realized_withdrawals_bruto += pb
-                realized_withdrawals_netto += pn
-                total_withdrawal_shortfall_netto += sn
-                has_withdrawal_shortfall |= (sn > 0)
-                end_cashflow_net -= cf.bedrag
-                end_shortfall_net += sn
-
-        current_bruto = np.maximum(0.0, current_bruto)
-        current_netto = np.maximum(0.0, current_netto)
-        
-        monthly_values_bruto[-1, :] = current_bruto
-        monthly_values_netto[-1, :] = current_netto
-        monthly_net_cashflow[-1, :] = end_cashflow_net
-        monthly_net_shortfall[-1, :] = end_shortfall_net
-
-        return {
-            "end_values_bruto": current_bruto,
-            "end_values_netto": current_netto,
-            "monthly_paths_bruto": monthly_values_bruto,
-            "monthly_paths_netto": monthly_values_netto,
-            "monthly_net_cashflow": monthly_net_cashflow,
-            "monthly_cumulative_costs": monthly_cumulative_costs,
-            "monthly_net_shortfall": monthly_net_shortfall,
-            "realized_deposits": realized_deposits,
-            "realized_withdrawals_bruto": realized_withdrawals_bruto,
-            "realized_withdrawals_netto": realized_withdrawals_netto,
-            "total_costs_paid": total_costs_paid,
-            "total_management_costs_paid": total_management_costs_paid,
-            "total_fund_costs_paid": total_fund_costs_paid,
-            "total_spread_costs_paid": total_spread_costs_paid,
-            "costs_base_sum": costs_base_sum,
-            "has_withdrawal_shortfall": has_withdrawal_shortfall,
-            "total_withdrawal_shortfall_netto": total_withdrawal_shortfall_netto
-        }
-
+    
     mu_array = np.zeros(total_months)
     sigma_array = np.zeros(total_months)
     is_niet_beleggen = np.zeros(total_months, dtype=bool)

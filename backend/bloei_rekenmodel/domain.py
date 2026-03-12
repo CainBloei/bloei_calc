@@ -58,7 +58,7 @@ class RekenInput(BaseModel):
     profiel: str
     startdatum: date
     horizon_jaren: int = Field(
-        ..., ge=0, le=MAX_HORIZON_JAREN,
+        ..., ge=1, le=MAX_HORIZON_JAREN,
         description=f"horizon_jaren moet tussen 0 en {MAX_HORIZON_JAREN} zijn."
     )
     n_scenarios: int = Field(

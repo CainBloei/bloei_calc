@@ -19,7 +19,7 @@ logger = logging.getLogger(__name__)
 
 app = FastAPI(title="Bloei Rekenmodule API")
 
-# 2. Het instellen van de API Sleutel controle
+# Instellen van de API Sleutel controle voor het /calculate endpoint
 API_KEY_NAME = "X-API-Key"
 API_KEY = os.getenv("API_KEY", "lokale_ontwikkel_sleutel_123!") 
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=False)
@@ -61,7 +61,7 @@ async def global_exception_handler(_request: Request, exc: Exception) -> JSONRes
     )
 
 
-# 3. NIEUW: Het "slot" (dependencies) toevoegen aan het endpoint
+# 3. Het /calculate endpoint
 @app.post("/calculate", dependencies=[Depends(get_api_key)])
 def calculate(input_data: RekenInput):
     """
