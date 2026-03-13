@@ -63,6 +63,25 @@ export const VerdelingChart: React.FC<Props> = ({ data }) => {
     });
   }, [data]);
 
+  // Voor elke X-waarde (vermogen <= 0) bepalen we de min/max zekerheid,
+  // zodat we in de tooltip een bereik kunnen tonen (bij gestapelde shortfall-percentielen).
+  const certaintyRangeByVermogen = useMemo(() => {
+    const map = new Map<number, { min: number; max: number }>();
+    for (const point of chartData) {
+      const v = point.vermogen;
+      if (v > 0) continue;
+      const z = point.zekerheid;
+      const existing = map.get(v);
+      if (!existing) {
+        map.set(v, { min: z, max: z });
+      } else {
+        if (z < existing.min) existing.min = z;
+        if (z > existing.max) existing.max = z;
+      }
+    }
+    return map;
+  }, [chartData]);
+
   if (!data || chartData.length === 0) return null;
 
   // Bepaal ronde tick-waarden voor de X-as (bijv. 100.000, 150.000, 200.000)
@@ -142,18 +161,30 @@ export const VerdelingChart: React.FC<Props> = ({ data }) => {
             {/* Y-as: Zekerheid in procenten (0% tot 100%) */}
             <YAxis 
               dataKey="zekerheid" 
-              domain={[0, 100]} 
+              domain={[0, 100]}
               tickFormatter={(val) => `${val}%`}
               tick={{ fill: tickColor, fontSize: 12 }}
               dx={-10}
-            />
+            /> 
             
             <Tooltip 
-              formatter={(value, name) => {
+              formatter={(value, name, props) => {
                 const v = value as number;
                 const n = (name ?? '') as string;
                 if (typeof v !== 'number') return null;
-                if (n === 'zekerheid') return [`${v}% kans op méér`, 'Zekerheid'];
+
+                if (n === 'zekerheid') {
+                  const vermogenX = (props && (props as any).payload && (props as any).payload.vermogen) as number | undefined;
+                  if (typeof vermogenX === 'number' && vermogenX <= 0) {
+                    const range = certaintyRangeByVermogen.get(vermogenX);
+                    if (range && range.max !== range.min) {
+                      // Toon het volledige bereik, bv. "99%–94% kans op méér"
+                      return [`${range.max}%–${range.min}% kans op méér`, 'Zekerheid'];
+                    }
+                  }
+                  return [`${v}% kans op méér`, 'Zekerheid'];
+                }
+
                 return [formatCurrency(v), 'Eindvermogen'];
               }}
               labelFormatter={(label) => `Bij een scenario van: ${formatCurrency(Number(label))}`}
