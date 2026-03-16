@@ -11,6 +11,46 @@ import { Controller } from 'react-hook-form';
 
 const inputClass = "w-full p-2 border rounded bg-white dark:bg-[#000000] dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-bloei-petrol";
 
+function parseIsoDate(value?: string | null): Date | null {
+  if (!value) return null;
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function computeHorizonRange(
+  startDateStr?: string | null,
+  horizonJaren?: number | null,
+): { minDate: Date; maxDate: Date } | null {
+  const start = parseIsoDate(startDateStr);
+  if (!start) return null;
+  if (horizonJaren == null) return null;
+
+  const years = Math.max(0, Math.floor(horizonJaren));
+  if (years <= 0) return null;
+
+  const end = new Date(start);
+  end.setFullYear(end.getFullYear() + years);
+
+  return { minDate: start, maxDate: end };
+}
+
+function clampDateToHorizon(date: Date, range: { minDate: Date; maxDate: Date }): Date {
+  if (date < range.minDate) return range.minDate;
+  if (date > range.maxDate) return range.maxDate;
+  return date;
+}
+
+function clampDateStringToHorizon(
+  value: string,
+  range: { minDate: Date; maxDate: Date } | null,
+): string {
+  if (!range) return value;
+  const parsed = parseIsoDate(value);
+  if (!parsed) return value;
+  const clamped = clampDateToHorizon(parsed, range);
+  return format(clamped, 'yyyy-MM-dd');
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const CurrencyField = ({ name, control, prefix = "€ ", decimalsLimit = 2 }: { name: any, control: any, prefix?: string, decimalsLimit?: number }) => (
   <Controller
@@ -70,7 +110,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
-  const { register, control, handleSubmit, watch, formState: { errors } } = useForm<RekenInput>({
+  const { register, control, handleSubmit, watch, formState: { errors }, setValue } = useForm<RekenInput>({
     resolver: yupResolver(schema) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     defaultValues: {
       startvermogen: 100000,
@@ -95,6 +135,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
   const watchPeriodiekeStorting = watch('periodieke_storting_maandelijks');
   const watchPeriodiekeOnttrekking = watch('periodieke_onttrekking_maandelijks');
   const watchIsBloeiPlus = watch('is_bloei_plus');
+  const watchStartdatum = watch('startdatum');
+  const watchHorizonJaren = watch('horizon_jaren');
+
+  const horizonRange = React.useMemo(
+    () => computeHorizonRange(watchStartdatum, watchHorizonJaren),
+    [watchStartdatum, watchHorizonJaren],
+  );
+
+  const horizonMinStr = horizonRange ? format(horizonRange.minDate, 'yyyy-MM-dd') : undefined;
+  const horizonMaxStr = horizonRange ? format(horizonRange.maxDate, 'yyyy-MM-dd') : undefined;
 
   const onSubmit = (data: RekenInput) => {
     onCalculate(data);
@@ -134,7 +184,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
 
           <div>
             <label className={labelClass}>Startdatum</label>
-            <input type="date" {...register('startdatum')} className={`${inputClass} cursor-pointer`} />
+            <input
+              type="date"
+              {...register('startdatum')}
+              className={`${inputClass} cursor-pointer`}
+            />
           </div>
 
           <div>
@@ -211,7 +265,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                 <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
                 <input
                   type="date"
-                  {...register('periodieke_storting_startdatum')}
+                  min={horizonMinStr}
+                  max={horizonMaxStr}
+                  {...register('periodieke_storting_startdatum', {
+                    onBlur: (e) => {
+                      if (!horizonRange) return;
+                      const original = e.target.value;
+                      if (!original) return;
+                      const clamped = clampDateStringToHorizon(original, horizonRange);
+                      if (clamped !== original) {
+                        setValue('periodieke_storting_startdatum', clamped, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    },
+                  })}
                   className={`${inputClass} cursor-pointer`}
                 />
               </div>
@@ -219,7 +288,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                 <label className="block text-xs text-gray-500 mb-1">Einddatum (optioneel)</label>
                 <input
                   type="date"
-                  {...register('periodieke_storting_einddatum')}
+                  min={horizonMinStr}
+                  max={horizonMaxStr}
+                  {...register('periodieke_storting_einddatum', {
+                    onBlur: (e) => {
+                      if (!horizonRange) return;
+                      const original = e.target.value;
+                      if (!original) return;
+                      const clamped = clampDateStringToHorizon(original, horizonRange);
+                      if (clamped !== original) {
+                        setValue('periodieke_storting_einddatum', clamped, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    },
+                  })}
                   className={`${inputClass} cursor-pointer`}
                 />
               </div>
@@ -237,7 +321,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                 <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
                 <input
                   type="date"
-                  {...register('periodieke_onttrekking_startdatum')}
+                  min={horizonMinStr}
+                  max={horizonMaxStr}
+                  {...register('periodieke_onttrekking_startdatum', {
+                    onBlur: (e) => {
+                      if (!horizonRange) return;
+                      const original = e.target.value;
+                      if (!original) return;
+                      const clamped = clampDateStringToHorizon(original, horizonRange);
+                      if (clamped !== original) {
+                        setValue('periodieke_onttrekking_startdatum', clamped, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    },
+                  })}
                   className={`${inputClass} cursor-pointer`}
                 />
               </div>
@@ -245,7 +344,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                 <label className="block text-xs text-gray-500 mb-1">Einddatum (optioneel)</label>
                 <input
                   type="date"
-                  {...register('periodieke_onttrekking_einddatum')}
+                  min={horizonMinStr}
+                  max={horizonMaxStr}
+                  {...register('periodieke_onttrekking_einddatum', {
+                    onBlur: (e) => {
+                      if (!horizonRange) return;
+                      const original = e.target.value;
+                      if (!original) return;
+                      const clamped = clampDateStringToHorizon(original, horizonRange);
+                      if (clamped !== original) {
+                        setValue('periodieke_onttrekking_einddatum', clamped, {
+                          shouldValidate: true,
+                          shouldDirty: true,
+                        });
+                      }
+                    },
+                  })}
                   className={`${inputClass} cursor-pointer`}
                 />
               </div>
@@ -295,7 +409,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                     <label className="text-xs text-gray-500">Datum</label>
                     <input
                       type="date"
-                      {...register(`eenmalige_cashflows.${index}.datum` as const)}
+                      min={horizonMinStr}
+                      max={horizonMaxStr}
+                      {...register(`eenmalige_cashflows.${index}.datum` as const, {
+                        onBlur: (e) => {
+                          if (!horizonRange) return;
+                          const original = e.target.value;
+                          if (!original) return;
+                          const clamped = clampDateStringToHorizon(original, horizonRange);
+                          if (clamped !== original) {
+                            setValue(`eenmalige_cashflows.${index}.datum` as const, clamped, {
+                              shouldValidate: true,
+                              shouldDirty: true,
+                            });
+                          }
+                        },
+                      })}
                       className={`${inputClass} text-sm py-1 cursor-pointer`}
                     />
                   </div>
