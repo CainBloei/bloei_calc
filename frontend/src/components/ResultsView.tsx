@@ -2,6 +2,7 @@ import React from 'react';
 import { ComponentChart } from './ComponentChart';
 import { VermogenChart } from './VermogenChart';
 import { VerdelingChart } from './VerdelingChart';
+import { KostenPieChart } from './KostenPieChart';
 import type { RekenOutput } from '../types';
 
 interface MetricCardProps {
@@ -95,68 +96,58 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen })
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* MiFID II Kosten Breakdown */}
-          {/* html2pdf-pagebreak-avoid zorgt dat dit blok niet doormidden wordt geknipt op de PDF */}
           <div className="html2pdf-pagebreak-avoid bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Verwachte kosten in de loop van de tijd</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Verwachte kosten in de loop van de tijd</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white">
                   <tr>
-                    <th className="px-4 py-3 rounded-tl">Kostensoort</th>
-                    <th className="px-4 py-3 text-right">% / jaar</th>
-                    <th className="px-4 py-3 text-right rounded-tr">Totaal betaald</th>
+                    <th rowSpan={2} className="px-4 py-2 align-bottom rounded-tl border-b border-gray-200 dark:border-neutral-600">Kostensoort</th>
+                    <th colSpan={2} className="px-4 py-2 text-center border-b border-gray-200 dark:border-neutral-600 border-l border-r">Eerste jaar</th>
+                    <th rowSpan={2} className="px-4 py-2 text-center align-bottom rounded-tr border-b border-gray-200 dark:border-neutral-600">Langjarig gemiddelde</th>
+                  </tr>
+                  <tr>
+                    <th className="px-4 py-2 text-center border-b border-gray-200 dark:border-neutral-600 border-l">%</th>
+                    <th className="px-4 py-2 text-center border-b border-gray-200 dark:border-neutral-600 border-r">€</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-neutral-600 dark:text-gray-400">
-                  <tr className="bg-white dark:bg-[#000000]">
-                    <td className="px-4 py-3 font-medium">Bloei beheervergoeding</td>
-                    <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_beheerkosten_pct, 2)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(data.totale_beheerkosten_betaald)}</td>
-                  </tr>
-                  <tr className="bg-white dark:bg-[#000000]">
-                    <td className="px-4 py-3 font-medium">Fondskosten (ETF's)</td>
-                    <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_fondskosten_pct, 2)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(data.totale_fondskosten_betaald)}</td>
-                  </tr>
-                  <tr className="bg-white dark:bg-[#000000]">
-                    <td className="px-4 py-3 font-medium">Transactiekosten (spread)</td>
-                    <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_spreadkosten_pct, 2)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(data.totale_spreadkosten_betaald)}</td>
-                  </tr>
-                  <tr className="bg-gray-50 dark:bg-[#000000] dark:text-white font-bold">
-                    <td className="px-4 py-3">Totale kosten (cumulatief)</td>
-                    <td className="px-4 py-3 text-right">{formatPct(data.gemiddelde_totale_kosten_pct, 2)}</td>
-                    <td className="px-4 py-3 text-right">{formatCurrency(data.totale_kosten_betaald)}</td>
-                  </tr>
+                  {(() => {
+                    const totalPct = data.gemiddelde_totale_kosten_pct;
+                    const ratio = (componentPct: number) => totalPct > 0 ? componentPct / totalPct : 0;
+                    const rows = [
+                      { label: 'Bloei beheervergoeding', avgPct: data.gemiddelde_beheerkosten_pct },
+                      { label: "Fondskosten", avgPct: data.gemiddelde_fondskosten_pct },
+                      { label: 'Transactiekosten (spread)', avgPct: data.gemiddelde_spreadkosten_pct },
+                    ];
+                    return (
+                      <>
+                        {rows.map((row) => (
+                          <tr key={row.label} className="bg-white dark:bg-[#000000]">
+                            <td className="px-4 py-3 font-medium">{row.label}</td>
+                            <td className="px-4 py-3 text-right border-l border-gray-100 dark:border-neutral-700">{formatPct(ratio(row.avgPct) * data.kosten_pct_jaar1, 2)}</td>
+                            <td className="px-4 py-3 text-right border-r border-gray-100 dark:border-neutral-700">{formatCurrency(ratio(row.avgPct) * data.kosten_eur_jaar1)}</td>
+                            <td className="px-4 py-3 text-center">{formatPct(row.avgPct, 2)}</td>
+                          </tr>
+                        ))}
+                        <tr className="bg-gray-50 dark:bg-[#000000] dark:text-white font-bold">
+                          <td className="px-4 py-3">Totale kosten</td>
+                          <td className="px-4 py-3 text-right border-l border-gray-100 dark:border-neutral-700">{formatPct(data.kosten_pct_jaar1, 2)}</td>
+                          <td className="px-4 py-3 text-right border-r border-gray-100 dark:border-neutral-700">{formatCurrency(data.kosten_eur_jaar1)}</td>
+                          <td className="px-4 py-3 text-center">{formatPct(data.gemiddelde_totale_kosten_pct, 2)}</td>
+                        </tr>
+                      </>
+                    );
+                  })()}
                 </tbody>
               </table>
-            </div>
-            <div className="mt-4 p-4 bg-red-50 dark:bg-red-900/20 text-red-800 dark:text-red-200 rounded-lg text-sm">
-              <span className="font-semibold">Let op:</span> Naast de direct betaalde kosten ({formatCurrency(data.totale_kosten_betaald)}) is er ook sprake van misgelopen rendement over de onttrokken kosten ({formatCurrency(data.misgelopen_rendement_op_kosten)}). De totale impact van kosten op het eindvermogen is {formatCurrency(data.totale_kosten_impact)}.
             </div>
           </div>
 
-          {/* Bruto / Netto Waterfall Placeholder */}
+          {/* Kostenopbouw taartdiagram */}
           <div className="html2pdf-pagebreak-avoid bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Bruto vs Netto Opbrengst</h3>
-             <div className="overflow-x-auto">
-              <table className="w-full text-sm text-left">
-                <tbody className="divide-y divide-gray-200 dark:divide-neutral-600">
-                   <tr>
-                      <td className="px-4 py-3 font-medium">Verwacht eindvermogen (zonder kosten)</td>
-                      <td className="px-4 py-3 text-right dark:text-white mb-4 font-bold">{formatCurrency(data.verwacht_eindvermogen_bruto)}</td>
-                   </tr>
-                   <tr>
-                      <td className="px-4 py-3 font-medium text-red-600">- Totale impact kosten (inclusief misgelopen rendement)</td>
-                      <td className="px-4 py-3 text-right text-red-600">{formatCurrency(data.totale_kosten_impact)}</td>
-                   </tr>
-                   <tr className="bg-gray-50 dark:bg-[#000000] text-lg">
-                      <td className="px-4 py-4 font-bold text-gray-900 dark:text-white mb-4">Netto verwacht eindvermogen</td>
-                      <td className="px-4 py-4 text-right dark:text-white mb-4 font-bold">{formatCurrency(data.verwacht_eindvermogen_netto)}</td>
-                   </tr>
-                </tbody>
-              </table>
-            </div>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Kostenopbouw</h3>
+            <KostenPieChart data={data} />
           </div>
 
         </div>

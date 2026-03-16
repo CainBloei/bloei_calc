@@ -44,7 +44,7 @@ const schema = yup.object({
   startvermogen: yup.number().min(0).required(),
   profiel: yup.string().oneOf(['Defensief', 'Matig defensief', 'Neutraal', 'Offensief', 'Zeer offensief', 'Niet beleggen'] as const).required(),
   startdatum: yup.string().required(),
-  horizon_jaren: yup.number().min(0).max(60).required(),
+  horizon_jaren: yup.number().min(1).max(60).required(),
   n_scenarios: yup.number().min(1).max(10000).default(5000),
   periodieke_storting_maandelijks: yup.number().min(0).default(0),
   periodieke_onttrekking_maandelijks: yup.number().min(0).default(0),

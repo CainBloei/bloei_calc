@@ -306,6 +306,96 @@ function renderVerdelingChart(data: RekenOutput): Promise<string> {
   );
 }
 
+const PIE_COLORS_PDF: [number, number, number][] = [
+  [15, 73, 79],    // #0f494f
+  [75, 119, 123],  // #4b777b
+  [135, 164, 167], // #87a4a7
+  [195, 209, 211], // #c3d1d3
+];
+
+/** Draws the cost pie chart + legend. Returns the bottom Y coordinate. */
+function drawKostenPieInPdf(
+  doc: jsPDF,
+  data: RekenOutput,
+  x: number,
+  y: number,
+  w: number,
+): number {
+  const entries = [
+    { label: 'Beheervergoeding', value: data.totale_beheerkosten_betaald },
+    { label: 'Fondskosten', value: data.totale_fondskosten_betaald },
+    { label: 'Transactiekosten', value: data.totale_spreadkosten_betaald },
+    { label: 'Misgelopen rendement', value: data.misgelopen_rendement_op_kosten },
+  ].filter((e) => e.value > 0);
+
+  const total = entries.reduce((s, e) => s + e.value, 0);
+  if (total === 0) return y;
+
+  const radius = 24;
+  const cx = x + w / 2;
+  const cy = y + radius + 4;
+
+  let startAngle = -Math.PI / 2;
+  entries.forEach((entry, i) => {
+    const sliceAngle = (entry.value / total) * 2 * Math.PI;
+    const color = PIE_COLORS_PDF[i % PIE_COLORS_PDF.length];
+    doc.setFillColor(...color);
+
+    const steps = Math.max(60, Math.ceil(sliceAngle / 0.015));
+    const segs: [number, number][] = [];
+
+    segs.push([
+      Math.cos(startAngle) * radius,
+      Math.sin(startAngle) * radius,
+    ]);
+
+    for (let s = 1; s <= steps; s++) {
+      const prev = startAngle + (sliceAngle * (s - 1)) / steps;
+      const cur = startAngle + (sliceAngle * s) / steps;
+      segs.push([
+        Math.cos(cur) * radius - Math.cos(prev) * radius,
+        Math.sin(cur) * radius - Math.sin(prev) * radius,
+      ]);
+    }
+
+    doc.lines(segs, cx, cy, [1, 1], 'F', true);
+    startAngle += sliceAngle;
+  });
+
+  let legendY = cy + radius + 8;
+  entries.forEach((entry, i) => {
+    const color = PIE_COLORS_PDF[i % PIE_COLORS_PDF.length];
+    const pct = ((entry.value / total) * 100).toFixed(1);
+
+    doc.setFillColor(...color);
+    doc.circle(x + 3, legendY - 1, 1.5, 'F');
+
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...GRAY_500);
+    doc.text(entry.label, x + 7, legendY);
+
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...GRAY_900);
+    doc.text(`${fmtCurr(entry.value)} (${pct}%)`, x + w, legendY, { align: 'right' });
+
+    legendY += 5;
+  });
+
+  doc.setDrawColor(...GRAY_200);
+  doc.setLineWidth(0.2);
+  doc.line(x + 2, legendY - 1, x + w, legendY - 1);
+  legendY += 2;
+
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...GRAY_900);
+  doc.text('Totale kostenimpact', x + 7, legendY);
+  doc.text(fmtCurr(total), x + w, legendY, { align: 'right' });
+
+  return legendY + 4;
+}
+
 export async function generateReportPdf(data: RekenOutput, startvermogen: number): Promise<void> {
   const doc = new jsPDF('p', 'mm', 'a4');
   const margin = 14;
@@ -342,7 +432,6 @@ export async function generateReportPdf(data: RekenOutput, startvermogen: number
   // Waarschuwingstekort
   if (data.faalkans > 0) {
     drawRoundedRect(doc, margin, y, contentWidth, 18, 3, RED_50, RED_500);
-    // accent lijn
     doc.setFillColor(...RED_500);
     doc.rect(margin, y + 2, 2, 14, 'F');
     
@@ -355,7 +444,7 @@ export async function generateReportPdf(data: RekenOutput, startvermogen: number
     y += 24;
   }
 
-  // Twee kolommen: Kosten | Bruto vs Netto
+  // Twee kolommen: Kosten tabel | Kosten taartdiagram
   const colW = (contentWidth - 8) / 2;
 
   // Titles
@@ -363,25 +452,43 @@ export async function generateReportPdf(data: RekenOutput, startvermogen: number
   doc.setTextColor(...GRAY_900);
   doc.setFont('helvetica', 'bold');
   doc.text('Verwachte kosten in de loop van de tijd', margin, y);
-  doc.text('Bruto vs Netto Opbrengst', margin + colW + 8, y);
+  doc.text('Kostenopbouw (langjarig)', margin + colW + 8, y);
   y += 6;
 
-  // Linker tabel
+  // Linker tabel – MiFID II conform
+  const totalPct = data.gemiddelde_totale_kosten_pct;
+  const ratio = (componentPct: number) => totalPct > 0 ? componentPct / totalPct : 0;
+
   autoTable(doc, {
     startY: y,
-    head: [['Kostensoort', '% / jaar', 'Totaal betaald']],
+    head: [
+      [
+        { content: 'Kostensoort', rowSpan: 2, styles: { valign: 'bottom' } },
+        { content: 'Eerste jaar', colSpan: 2, styles: { halign: 'center' } },
+        { content: 'Langjarig gem.', rowSpan: 2, styles: { halign: 'right', valign: 'bottom' } },
+      ],
+      [
+        { content: '%', styles: { halign: 'right' } },
+        { content: '€', styles: { halign: 'right' } },
+      ],
+    ],
     body: [
-      ['Bloei beheervergoeding', fmtPct(data.gemiddelde_beheerkosten_pct, 2), fmtCurr(data.totale_beheerkosten_betaald)],
-      ['Fondskosten (ETF\'s)', fmtPct(data.gemiddelde_fondskosten_pct, 2), fmtCurr(data.totale_fondskosten_betaald)],
-      ['Transactiekosten (spread)', fmtPct(data.gemiddelde_spreadkosten_pct, 2), fmtCurr(data.totale_spreadkosten_betaald)],
-      ['Totale kosten (cumulatief)', fmtPct(data.gemiddelde_totale_kosten_pct, 2), fmtCurr(data.totale_kosten_betaald)],
+      ['Bloei beheervergoeding', fmtPct(ratio(data.gemiddelde_beheerkosten_pct) * data.kosten_pct_jaar1, 2), fmtCurr(ratio(data.gemiddelde_beheerkosten_pct) * data.kosten_eur_jaar1), fmtPct(data.gemiddelde_beheerkosten_pct, 2)],
+      ['Fondskosten', fmtPct(ratio(data.gemiddelde_fondskosten_pct) * data.kosten_pct_jaar1, 2), fmtCurr(ratio(data.gemiddelde_fondskosten_pct) * data.kosten_eur_jaar1), fmtPct(data.gemiddelde_fondskosten_pct, 2)],
+      ['Transactiekosten (spread)', fmtPct(ratio(data.gemiddelde_spreadkosten_pct) * data.kosten_pct_jaar1, 2), fmtCurr(ratio(data.gemiddelde_spreadkosten_pct) * data.kosten_eur_jaar1), fmtPct(data.gemiddelde_spreadkosten_pct, 2)],
+      ['Totale kosten', fmtPct(data.kosten_pct_jaar1, 2), fmtCurr(data.kosten_eur_jaar1), fmtPct(data.gemiddelde_totale_kosten_pct, 2)],
     ],
     theme: 'plain',
-    headStyles: { fillColor: GRAY_50, textColor: GRAY_500, fontStyle: 'bold', fontSize: 9 },
-    bodyStyles: { fontSize: 9, textColor: GRAY_500 },
+    headStyles: { fillColor: GRAY_50, textColor: GRAY_500, fontStyle: 'bold', fontSize: 8 },
+    bodyStyles: { fontSize: 8, textColor: GRAY_500 },
     margin: { left: margin },
     tableWidth: colW,
-    columnStyles: { 0: { cellWidth: colW * 0.5 }, 1: { cellWidth: colW * 0.25, halign: 'right' }, 2: { cellWidth: colW * 0.25, halign: 'right' } },
+    columnStyles: {
+      0: { cellWidth: colW * 0.38 },
+      1: { cellWidth: colW * 0.18, halign: 'right' },
+      2: { cellWidth: colW * 0.22, halign: 'right' },
+      3: { cellWidth: colW * 0.22, halign: 'right' },
+    },
     didParseCell: function(d) {
       if (d.section === 'body' && d.row.index === 3) {
         d.cell.styles.fontStyle = 'bold';
@@ -397,54 +504,10 @@ export async function generateReportPdf(data: RekenOutput, startvermogen: number
   });
   const yAfterKostenTable = (doc as JsPDFWithAutoTable).lastAutoTable.finalY;
 
-  // Let op tekst
-  const warningText = `Let op: Naast de direct betaalde kosten (${fmtCurr(data.totale_kosten_betaald)}) is er ook sprake van misgelopen rendement over de onttrokken kosten (${fmtCurr(data.misgelopen_rendement_op_kosten)}). De totale impact van kosten op het eindvermogen is ${fmtCurr(data.totale_kosten_impact)}.`;
-  
-  doc.setFontSize(9);
-  const textLines = doc.splitTextToSize(warningText, contentWidth + 40);
-  const warningH = textLines.length * 4 + 6;
-  
-  doc.setTextColor(...GRAY_500);
-  doc.setFont('helvetica', 'italic');
-  doc.setFontSize(8);
-  doc.text(textLines, margin, yAfterKostenTable + 6);
-  
-  const yAfterKosten = yAfterKostenTable + warningH;
+  // Rechter kolom: taartdiagram kostenopbouw (native jsPDF drawing)
+  const yAfterPie = drawKostenPieInPdf(doc, data, margin + colW + 8, y, colW);
 
-  // Rechter tabel
-  autoTable(doc, {
-    startY: y,
-    body: [
-      ['Verwacht eindvermogen (zonder kosten)', fmtCurr(data.verwacht_eindvermogen_bruto)],
-      ['- Totale impact kosten (incl. gemist rendement)', fmtCurr(data.totale_kosten_impact)],
-      ['Netto verwacht eindvermogen', fmtCurr(data.verwacht_eindvermogen_netto)],
-    ],
-    theme: 'plain',
-    bodyStyles: { fontSize: 9, textColor: GRAY_500 },
-    margin: { left: margin + colW + 8 },
-    tableWidth: colW,
-    columnStyles: { 0: { cellWidth: colW * 0.6 }, 1: { cellWidth: colW * 0.4, halign: 'right', fontStyle: 'bold' } },
-    didParseCell: function(d) {
-      if (d.section === 'body') {
-        if (d.row.index === 1) {
-          d.cell.styles.textColor = RED_600;
-        }
-        if (d.row.index === 2) {
-          d.cell.styles.fillColor = GRAY_50;
-          d.cell.styles.fontStyle = 'bold';
-          d.cell.styles.textColor = GRAY_900;
-          d.cell.styles.fontSize = 11;
-        }
-      }
-    },
-    willDrawCell: function(d) {
-      doc.setDrawColor(...GRAY_200);
-      doc.setLineWidth(0.1);
-      doc.line(d.cell.x, d.cell.y + d.cell.height, d.cell.x + d.cell.width, d.cell.y + d.cell.height);
-    }
-  });
-
-  y = Math.max(yAfterKosten, (doc as JsPDFWithAutoTable).lastAutoTable.finalY) + 14;
+  y = Math.max(yAfterKostenTable, yAfterPie) + 10;
 
   // Jaarlijks overzicht
   doc.setFontSize(12);
