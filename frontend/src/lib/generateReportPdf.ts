@@ -36,7 +36,6 @@ const fmtPct = (val: number, digits = 2) =>
   new Intl.NumberFormat('nl-NL', { style: 'percent', minimumFractionDigits: digits, maximumFractionDigits: digits }).format(val / 100);
 
 // Colors matching the UI (Tailwind palette)
-const BLOEI_PETROL = '#0f494f';
 const BLOEI_PINK = '#ff787c';
 const GRAY_50: [number, number, number] = [249, 250, 251];
 const GRAY_200: [number, number, number] = [229, 231, 235];
@@ -139,7 +138,7 @@ function renderComponentChart(data: RekenOutput, startvermogen: number): Promise
   const stortingen = data.tijdlijn_cashflow_netto.reduce((sum, val) => sum + (val > 0 ? val : 0), 0);
   const onttrekkingen = Math.abs(data.verwachte_winst_netto - data.verwacht_eindvermogen_netto + startvermogen + stortingen);
   const chartData = {
-    labels: ['Startvermogen', 'Stortingen', 'Rendement (Bruto)', 'Onttrekkingen', 'Kosten Impact', 'Netto Eindvermogen'],
+    labels: ['Startvermogen', 'Stortingen', 'Rendement (Bruto)', 'Onttrekkingen', 'Kosten Impact'],
     datasets: [{
       label: 'Bedrag',
       data: [
@@ -148,9 +147,8 @@ function renderComponentChart(data: RekenOutput, startvermogen: number): Promise
         data.verwachte_winst_bruto,
         -onttrekkingen,
         -data.totale_kosten_impact,
-        data.verwacht_eindvermogen_netto,
       ],
-      backgroundColor: [BLOEI_PETROL, '#14b8a6', BLOEI_PINK, '#ffc701', '#b34025', BLOEI_PETROL],
+      backgroundColor: ['#0f494f', '#4b777b', '#87a4a7', '#c3d1d3', '#eeeae9'],
       borderRadius: 6,
       borderSkipped: false,
     }],

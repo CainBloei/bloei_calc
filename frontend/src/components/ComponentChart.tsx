@@ -34,37 +34,33 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
 
   const rendementBruto = data.verwachte_winst_bruto;
   const kostenImpact = data.totale_kosten_impact;
-  const eindvermogen = data.verwacht_eindvermogen_netto;
 
   // 2. We zetten de data in een simpele array.
   // Onttrekkingen en kosten maken we negatief zodat ze naar links wijzen op de X-as.
   const chartData = {
     labels: [
-      'Startvermogen', 
-      'Stortingen', 
-      'Rendement (Bruto)', 
-      'Onttrekkingen', 
-      'Kosten Impact', 
-      'Netto Eindvermogen'
+      'Startvermogen',
+      'Stortingen',
+      'Rendement (Bruto)',
+      'Onttrekkingen',
+      'Kosten Impact',
     ],
     datasets: [
       {
         label: 'Bedrag',
         data: [
-          startvermogen, 
-          stortingen, 
-          rendementBruto, 
+          startvermogen,
+          stortingen,
+          rendementBruto,
           -onttrekkingen, // Negatief voor weergave naar links
           -kostenImpact,  // Negatief voor weergave naar links
-          eindvermogen
         ],
         backgroundColor: [
-          '#0f494f', // bloei-petrol
-          '#14b8a6', // teal-500
-          '#ff787c', // bloei-pink
-          '#ffc701', // yellow-500
-          '#b34025', // red-500
-          '#0f494f', // bloei-petrol (Eindvermogen zelfde kleur als start)
+          '#0f494f',
+          '#4b777b',
+          '#87a4a7',
+          '#c3d1d3',
+          '#eeeae9',
         ],
         borderRadius: 6, // Maakt de staafjes mooi afgerond
         borderSkipped: false,
