@@ -9,7 +9,7 @@ import type { RekenInput } from '../types';
 import CurrencyInput from 'react-currency-input-field';
 import { Controller } from 'react-hook-form';
 
-const inputClass = "w-full p-2 border rounded bg-white dark:bg-[#000000] dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-bloei-petrol";
+const inputClass = "w-full p-2 border rounded bg-white dark:bg-[#000000] dark:border-neutral-600 focus:outline-none focus:ring-2 focus:ring-bloei-petrol dark:focus:ring-[#eeeae9]";
 
 function parseIsoDate(value?: string | null): Date | null {
   if (!value) return null;
@@ -52,7 +52,19 @@ function clampDateStringToHorizon(
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-const CurrencyField = ({ name, control, prefix = "€ ", decimalsLimit = 2 }: { name: any, control: any, prefix?: string, decimalsLimit?: number }) => (
+const CurrencyField = ({
+  name,
+  control,
+  prefix = "€ ",
+  decimalsLimit = 2,
+  allowEmpty = false,
+}: {
+  name: any,
+  control: any,
+  prefix?: string,
+  decimalsLimit?: number,
+  allowEmpty?: boolean,
+}) => (
   <Controller
     name={name}
     control={control}
@@ -61,12 +73,12 @@ const CurrencyField = ({ name, control, prefix = "€ ", decimalsLimit = 2 }: { 
         id={name}
         name={name}
         // Als de waarde 0 is, maken we het veld leeg zodat de nul niet in de weg zit.
-        value={value === 0 ? '' : value}
+        value={allowEmpty ? (value ?? '') : (value === 0 ? '' : value)}
         // ...maar we tonen wel een nette placeholder zodat de gebruiker snapt dat leeg "0" betekent.
         placeholder={`${prefix}0`} 
         allowNegativeValue={false} 
         decimalsLimit={decimalsLimit}
-        onValueChange={(val) => onChange(val === undefined ? 0 : Number(val))}
+        onValueChange={(val) => onChange(val === undefined ? (allowEmpty ? undefined : 0) : Number(val))}
         prefix={prefix}
         groupSeparator="."
         decimalSeparator=","
@@ -88,6 +100,7 @@ const schema = yup.object({
   n_scenarios: yup.number().min(1).max(10000).default(5000),
   periodieke_storting_maandelijks: yup.number().min(0).default(0),
   periodieke_onttrekking_maandelijks: yup.number().min(0).default(0),
+  doelvermogen: yup.number().min(0).optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_storting_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_storting_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_onttrekking_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
@@ -120,6 +133,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
       n_scenarios: 5000,
       periodieke_storting_maandelijks: 0,
       periodieke_onttrekking_maandelijks: 0,
+      doelvermogen: undefined,
       eenmalige_cashflows: [],
       afbouw_profiel: false,
       is_bloei_plus: false,
@@ -154,7 +168,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
 
   return (
     <div className="w-90 bg-gray-50 dark:bg-neutral-950 border-r dark:border-neutral-800 h-screen flex flex-col">
-      <div className="p-4 bg-bloei-petrol text-white shrink-0 dark:text-gray-300">
+      <div className="p-4 bg-bloei-petrol text-white shrink-0 dark:bg-[#000000] dark:text-white">
         <h1 className="text-xl font-bold">Bloei Rekenmodule</h1>
       </div>
 
@@ -162,7 +176,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
         
         {/* Basisinvoer */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-bloei-petrol border-b pb-2">Basisinvoer</h2>
+          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9] border-b pb-2">Basisinvoer</h2>
           
           <div>
             <label className={labelClass}>Startvermogen (€)</label>
@@ -201,7 +215,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
               type="checkbox"
               id="afbouw_profiel"
               {...register('afbouw_profiel')}
-              className="rounded text-bloei-petrol focus:ring-bloei-petrol cursor-pointer"
+              className="rounded text-bloei-petrol focus:ring-bloei-petrol dark:text-[#eeeae9] dark:focus:ring-[#eeeae9] cursor-pointer"
             />
             <label
               htmlFor="afbouw_profiel"
@@ -227,13 +241,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
               />
               
               {/* De schuivende gekleurde 'pill' */}
-              <div className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-bloei-petrol rounded-full shadow-sm transition-transform duration-300 ease-in-out peer-checked:translate-x-full"></div>
+              <div className="absolute top-1 bottom-1 left-1 w-[calc(50%-4px)] bg-bloei-petrol dark:bg-[#000000] rounded-full shadow-sm transition-transform duration-300 ease-in-out peer-checked:translate-x-full"></div>
               
               {/* Optie 1: Bloei Standaard */}
               <span className={`relative z-10 w-1/2 text-center text-sm py-1.5 font-medium transition-colors duration-300 ${
                 !watchIsBloeiPlus 
                   ? 'text-white' 
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-[#f2efef]'
               }`}>
                 Bloei
               </span>
@@ -242,7 +256,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
               <span className={`relative z-10 w-1/2 text-center text-sm py-1.5 font-medium transition-colors duration-300 ${
                 watchIsBloeiPlus 
                   ? 'text-white' 
-                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white'
+                  : 'text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-[#f2efef]'
               }`}>
                 Bloei Plus
               </span>
@@ -250,9 +264,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
           </div>
         </section>
 
+        {/* Doelstellingen */}
+        <section className="space-y-4">
+          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9] border-b pb-2">Doelstellingen</h2>
+          <div>
+            <label className={labelClass}>Doelvermogen aan einde horizon (€)</label>
+            <CurrencyField name="doelvermogen" control={control} allowEmpty />
+          </div>
+        </section>
+
         {/* Periodieke stortingen / onttrekkingen */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-bloei-petrol border-b pb-2">Periodieke stortingen / onttrekkingen</h2>
+          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9] border-b pb-2">Periodieke stortingen / onttrekkingen</h2>
           
           <div>
             <label className={labelClass}>Maandelijkse Inleg (€)</label>
@@ -371,12 +394,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
         <div className={fields.length === 0 ? 'space-y-2' : 'space-y-6'}>
         {/* Eenmalige Cashflows */}
         <section className="space-y-4">
-          <div className={`flex items-center justify-between ${fields.length > 0 ? 'border-b pb-2' : 'pb-0'}`}>
-            <h2 className="text-lg font-semibold text-bloei-petrol dark:text-bloei-petrol">Eenmalig</h2>
+          <div className={`flex items-center justify-between ${fields.length > 0 ? 'border-b dark:border-[#eeeae9] pb-2' : 'pb-0'}`}>
+            <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9]">Eenmalig</h2>
             <button 
               type="button" 
               onClick={() => append({ bedrag: 0, datum: format(new Date(), 'yyyy-MM-dd'), type: 'storting' })}
-              className="text-bloei-petrol hover:text-teal-700 cursor-pointer"
+              className="text-bloei-petrol hover:text-teal-700 dark:text-[#eeeae9] dark:hover:text-[#f2efef] cursor-pointer"
             >
               <Plus size={20} />
             </button>
@@ -389,7 +412,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
                 <button 
                   type="button" 
                   onClick={() => remove(index)}
-                  className="absolute top-2 right-2 text-gray-400 hover:text-teal-700 cursor-pointer"
+                  className="absolute top-2 right-2 text-gray-400 hover:text-teal-700 dark:hover:text-[#f2efef] cursor-pointer"
                 >
                   <Trash2 size={16} />
                 </button>
@@ -447,7 +470,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
         <button 
           type="submit" 
           disabled={isLoading}
-          className="w-full py-3 bg-bloei-petrol hover:bg-teal-700 text-white rounded font-bold shadow transition-colors disabled:opacity-50 mt-8 cursor-pointer disabled:cursor-not-allowed"
+          className="w-full py-3 bg-bloei-petrol hover:bg-teal-700 dark:bg-neutral-800 dark:hover:bg-gray-300 dark:hover:text-gray-900 text-white rounded font-bold shadow transition-colors disabled:opacity-50 mt-8 cursor-pointer disabled:cursor-not-allowed"
         >
           {isLoading ? 'Berekenen...' : 'Bereken resultaat'}
         </button>

@@ -85,6 +85,11 @@ class RekenInput(BaseModel):
     afbouw_profiel: bool = False
     is_bloei_plus: bool = False  # standaard Bloei
     rng_seed: int = Field(42, ge=0, le=2**31 - 1)
+    doelvermogen: float | None = Field(
+        default=None,
+        ge=0,
+        description="Optioneel doelvermogen aan het eind van de looptijd.",
+    )
 
     custom_rendement_dict: dict[str, float] | None = None
     custom_volatiliteit_dict: dict[str, float] | None = None
@@ -156,6 +161,7 @@ class RekenOutput(BaseModel):
     # Failure / shortfall metrics
     faalkans: float
     verwacht_onttrekkingstekort: float
+    haalbaarheid_doelvermogen_pct: float | None = None
     
     # Verdeling voor de S-curve (percentielen 1 t/m 99)
     verdeling_eindvermogen_percentielen: list[float]
@@ -163,6 +169,7 @@ class RekenOutput(BaseModel):
     tijdlijn_datums: list[date]
     tijdlijn_vermogen_bruto: list[float]
     tijdlijn_vermogen_netto: list[float]
+    tijdlijn_vermogen_p1_netto: list[float]
     tijdlijn_vermogen_p10_netto: list[float]
     tijdlijn_vermogen_p20_netto: list[float]
     tijdlijn_vermogen_p40_netto: list[float]
@@ -170,6 +177,7 @@ class RekenOutput(BaseModel):
     tijdlijn_vermogen_p60_netto: list[float]
     tijdlijn_vermogen_p80_netto: list[float]
     tijdlijn_vermogen_p90_netto: list[float]
+    tijdlijn_vermogen_p99_netto: list[float]
     tijdlijn_profiel: list[str]
     tijdlijn_cashflow_netto: list[float]
     tijdlijn_kosten_cumulatief: list[float]

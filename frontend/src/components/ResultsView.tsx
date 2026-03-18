@@ -41,9 +41,17 @@ export const formatPct = (val: number, fractionDigits: number = 2) => {
 interface ResultsViewProps {
   data: RekenOutput;
   startvermogen: number;
+  periodiekeOnttrekkingMaandelijks: number;
 }
 
-export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen }) => {
+export const ResultsView: React.FC<ResultsViewProps> = ({
+  data,
+  startvermogen,
+  periodiekeOnttrekkingMaandelijks,
+}) => {
+  const hasPeriodiekeOnttrekking = periodiekeOnttrekkingMaandelijks > 0;
+  const inkomensdoelHaalbaar = data.faalkans <= 0.01;
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 bg-gray-50 dark:bg-transparent p-1">
         {/* Top Metrics Row */}
@@ -71,38 +79,38 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen })
           />
         </div>
 
-        {data.faalkans > 0 && (
-          <div className="bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 p-4 rounded-r-xl shadow-sm">
-            <div className="flex">
-              <div className="flex-shrink-0">
-                <svg className="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-              </div>
-              <div className="ml-3">
-                <h3 className="text-sm font-medium text-red-800 dark:text-red-200">
-                  Waarschuwing: Mogelijke onttrekkingstekorten
-                </h3>
-                <div className="mt-2 text-sm text-red-700 dark:text-red-300">
-                  <p>
-                    In {formatPct(data.faalkans * 100, 0)} van de scenario's is er onvoldoende saldo om alle gewenste opnames te doen.
-                  </p>
-                </div>
-              </div>
-            </div>
+        {(hasPeriodiekeOnttrekking || data.haalbaarheid_doelvermogen_pct != null) && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {hasPeriodiekeOnttrekking && (
+              <MetricCard
+                title="Inkomensdoelstelling (99% zekerheid)"
+                value={inkomensdoelHaalbaar ? 'Haalbaar' : 'Niet haalbaar'}
+                subtitle={`Faalkans: ${formatPct(data.faalkans * 100, 0)}`}
+                className={inkomensdoelHaalbaar ? 'border-l-4 border-l-green-500' : 'border-l-4 border-l-red-500'}
+              />
+            )}
+
+            {data.haalbaarheid_doelvermogen_pct != null && (
+              <MetricCard
+                title="Kans op behalen doelvermogen"
+                value={formatPct(data.haalbaarheid_doelvermogen_pct, 0)}
+                subtitle="Op basis van netto eindvermogen"
+                className="border-l-4 border-l-bloei-petrol"
+              />
+            )}
           </div>
         )}
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* MiFID II Kosten Breakdown */}
-          <div className="html2pdf-pagebreak-avoid bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
+          <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Verwachte kosten in de loop van de tijd</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white">
                   <tr>
-                    <th rowSpan={2} className="px-4 py-2 align-bottom rounded-tl border-b border-gray-200 dark:border-neutral-600">Kostensoort</th>
+                    <th rowSpan={2} className="px-4 py-2 align-center rounded-tl border-b border-gray-200 dark:border-neutral-600">Kostensoort</th>
                     <th colSpan={2} className="px-4 py-2 text-center border-b border-gray-200 dark:border-neutral-600 border-l border-r">Eerste jaar</th>
                     <th rowSpan={2} className="px-4 py-2 text-center align-bottom rounded-tr border-b border-gray-200 dark:border-neutral-600">Langjarig gemiddelde</th>
                   </tr>
@@ -145,15 +153,15 @@ export const ResultsView: React.FC<ResultsViewProps> = ({ data, startvermogen })
           </div>
 
           {/* Kostenopbouw taartdiagram */}
-          <div className="html2pdf-pagebreak-avoid bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
+          <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Kostenopbouw</h3>
             <KostenPieChart data={data} />
           </div>
 
         </div>
 
-        {/* Cashflow per Year Table - volledig uitgeklapt bij print/PDF */}
-        <div className="html2pdf-pagebreak-avoid bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
+        {/* Cashflow per Year Table */}
+        <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Voorbeeldscenario jaarlijks overzicht</h3>
           <div className="overflow-x-auto max-h-96">
             <table className="w-full text-sm text-left">

@@ -20,6 +20,7 @@ export interface RekenInput {
   afbouw_profiel: boolean;
   is_bloei_plus: boolean;
   rng_seed: number;
+  doelvermogen?: number;
   custom_rendement_dict?: Record<string, number>;
   custom_volatiliteit_dict?: Record<string, number>;
 }
@@ -56,10 +57,12 @@ export interface RekenOutput {
   
   faalkans: number;
   verwacht_onttrekkingstekort: number;
+  haalbaarheid_doelvermogen_pct?: number;
   
   tijdlijn_datums: string[];
   tijdlijn_vermogen_bruto: number[];
   tijdlijn_vermogen_netto: number[];
+  tijdlijn_vermogen_p1_netto: number[];
   tijdlijn_vermogen_p10_netto: number[];
   tijdlijn_vermogen_p20_netto: number[];
   tijdlijn_vermogen_p40_netto: number[];
@@ -67,6 +70,7 @@ export interface RekenOutput {
   tijdlijn_vermogen_p60_netto: number[];
   tijdlijn_vermogen_p80_netto: number[];
   tijdlijn_vermogen_p90_netto: number[];
+  tijdlijn_vermogen_p99_netto: number[];
   tijdlijn_profiel: string[];
   tijdlijn_cashflow_netto: number[];
   tijdlijn_kosten_cumulatief: number[];

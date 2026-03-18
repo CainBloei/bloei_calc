@@ -388,11 +388,11 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         inp.custom_rendement_dict
         if inp.custom_rendement_dict is not None
         else {
-            "Defensief": 3.7116,
-            "Matig defensief": 4.6732,
-            "Neutraal": 5.6348,
-            "Offensief": 6.5964,
-            "Zeer offensief": 7.558,
+            "Defensief": 3.4474,
+            "Matig defensief": 4.5948,
+            "Neutraal": 5.7422,
+            "Offensief": 6.8896,
+            "Zeer offensief": 8.037,
             "Niet beleggen": 0.0,
         }
     )
@@ -517,6 +517,11 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
 
     faalkans = float(np.clip(np.mean(results["has_withdrawal_shortfall"]), 0.0, 1.0))
     verwacht_onttrekkingstekort = _safe_stat_mean(results["total_withdrawal_shortfall_netto"])
+    haalbaarheid_doelvermogen_pct = (
+        _safe_float(float(np.mean(end_values_netto_arr >= inp.doelvermogen) * 100.0))
+        if inp.doelvermogen is not None
+        else None
+    )
 
     # Genereer de verdeling van het eindvermogen (percentiel 1 t/m 99)
     verdeling_eindvermogen_percentielen = [
@@ -526,6 +531,7 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     tijdlijn_vermogen_bruto = [_safe_float(x) for x in np.percentile(monthly_paths_bruto_arr, 50, axis=1)]
     tijdlijn_vermogen_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 50, axis=1)]
 
+    tijdlijn_vermogen_p1_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 1, axis=1)]
     tijdlijn_vermogen_p10_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 10, axis=1)]
     tijdlijn_vermogen_p20_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 20, axis=1)]
     tijdlijn_vermogen_p40_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 40, axis=1)]
@@ -533,6 +539,7 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     tijdlijn_vermogen_p60_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 60, axis=1)]
     tijdlijn_vermogen_p80_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 80, axis=1)]
     tijdlijn_vermogen_p90_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 90, axis=1)]
+    tijdlijn_vermogen_p99_netto = [_safe_float(x) for x in np.percentile(monthly_paths_netto_arr, 99, axis=1)]
     
     tijdlijn_cashflow_netto = [_safe_float(x) for x in np.mean(monthly_net_cashflow_arr, axis=1)]
     tijdlijn_kosten_cumulatief = [_safe_float(x) for x in np.mean(monthly_cumulative_costs_arr, axis=1)]
@@ -577,12 +584,14 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
 
         faalkans=max(0.0, min(1.0, _safe_float(faalkans))),
         verwacht_onttrekkingstekort=max(0.0, _safe_float(verwacht_onttrekkingstekort)),
+        haalbaarheid_doelvermogen_pct=haalbaarheid_doelvermogen_pct,
 
         verdeling_eindvermogen_percentielen=verdeling_eindvermogen_percentielen,
 
         tijdlijn_datums=tijdlijn_datums,
         tijdlijn_vermogen_bruto=tijdlijn_vermogen_bruto,
         tijdlijn_vermogen_netto=tijdlijn_vermogen_netto,
+        tijdlijn_vermogen_p1_netto=tijdlijn_vermogen_p1_netto,
         tijdlijn_vermogen_p10_netto=tijdlijn_vermogen_p10_netto,
         tijdlijn_vermogen_p20_netto=tijdlijn_vermogen_p20_netto,
         tijdlijn_vermogen_p40_netto=tijdlijn_vermogen_p40_netto,
@@ -590,6 +599,7 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         tijdlijn_vermogen_p60_netto=tijdlijn_vermogen_p60_netto,
         tijdlijn_vermogen_p80_netto=tijdlijn_vermogen_p80_netto,
         tijdlijn_vermogen_p90_netto=tijdlijn_vermogen_p90_netto,
+        tijdlijn_vermogen_p99_netto=tijdlijn_vermogen_p99_netto,
         tijdlijn_profiel=tijdlijn_profiel,
         tijdlijn_cashflow_netto=tijdlijn_cashflow_netto,
         tijdlijn_kosten_cumulatief=tijdlijn_kosten_cumulatief,

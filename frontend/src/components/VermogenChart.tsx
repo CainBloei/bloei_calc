@@ -41,12 +41,33 @@ export const VermogenChart: React.FC<VermogenChartProps> = ({ data }) => {
   const chartData = {
     labels,
     datasets: [
+      // Zeer onwaarschijnlijk band (p1-p90)
+      {
+        label: 'Zeer onwaarschijnlijk',
+        data: data.tijdlijn_vermogen_p90_netto,
+        borderColor: 'rgba(255, 120, 124, 0)', // onzichtbare lijn
+        backgroundColor: 'rgba(255, 120, 124, 0.10)', // buitenste, lichtste roze waaier
+        fill: '+1', // vult naar de onderliggende p1-lijn
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        tension: 0.1,
+      },
+      {
+        label: 'Zeer onwaarschijnlijk (ondergrens)',
+        data: data.tijdlijn_vermogen_p1_netto,
+        borderColor: 'rgba(0, 0, 0, 0)',
+        backgroundColor: 'rgba(0, 0, 0, 0)',
+        fill: false,
+        pointRadius: 0,
+        pointHoverRadius: 0,
+        tension: 0.1,
+      },
       // Minder waarschijnlijk band
       {
         label: 'Minder waarschijnlijk',
         data: data.tijdlijn_vermogen_p80_netto,
         borderColor: 'rgba(255, 120, 124, 0)', // onzichtbare lijn
-        backgroundColor: 'rgba(255, 120, 124, 0.25)', // brede, lichte band
+        backgroundColor: 'rgba(255, 120, 124, 0.25)', // middelste roze waaier
         fill: '+1', // vult naar de onderliggende p20-lijn
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -66,8 +87,8 @@ export const VermogenChart: React.FC<VermogenChartProps> = ({ data }) => {
       {
         label: 'Waarschijnlijk',
         data: data.tijdlijn_vermogen_p60_netto,
-        borderColor: 'rgba(15, 73, 79, 0)', // onzichtbare rand
-        backgroundColor: 'rgba(255, 120, 124, 1)', // smallere, intensere band
+        borderColor: 'rgba(255, 120, 124, 0)', // onzichtbare rand
+        backgroundColor: 'rgba(255, 120, 124, 1)', // binnenste, meest intense roze waaier
         fill: '+1', // vult naar de onderliggende p40-lijn
         pointRadius: 0,
         pointHoverRadius: 0,
@@ -126,7 +147,19 @@ export const VermogenChart: React.FC<VermogenChartProps> = ({ data }) => {
                 maximumFractionDigits: 0,
               }).format(value);
 
-            // Toon bandbreedte voor de twee waaiers
+            // Toon bandbreedte voor de waaiers
+            if (datasetLabel === 'Zeer onwaarschijnlijk') {
+              const upper = context.parsed.y;
+              const lowerDataset = chart.data.datasets.find(
+                (ds: any) => ds.label === 'Zeer onwaarschijnlijk (ondergrens)'
+              );
+              const lower = lowerDataset?.data?.[index];
+
+              if (upper !== null && lower !== undefined) {
+                return `${datasetLabel}: ${formatCurrency(lower)} - ${formatCurrency(upper)}`;
+              }
+            }
+
             if (datasetLabel === 'Minder waarschijnlijk') {
               const upper = context.parsed.y;
               const lowerDataset = chart.data.datasets.find(
