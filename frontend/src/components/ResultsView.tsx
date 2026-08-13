@@ -3,6 +3,7 @@ import { ComponentChart } from './ComponentChart';
 import { VermogenChart } from './VermogenChart';
 import { VerdelingChart } from './VerdelingChart';
 import { KostenPieChart } from './KostenPieChart';
+import { CopyableSection } from './CopyableSection';
 import type { RekenOutput } from '../types';
 
 interface MetricCardProps {
@@ -41,15 +42,16 @@ export const formatPct = (val: number, fractionDigits: number = 2) => {
 interface ResultsViewProps {
   data: RekenOutput;
   startvermogen: number;
-  periodiekeOnttrekkingMaandelijks: number;
+  hasPeriodiekeOnttrekking: boolean;
+  afbouwProfiel: boolean;
 }
 
 export const ResultsView: React.FC<ResultsViewProps> = ({
   data,
   startvermogen,
-  periodiekeOnttrekkingMaandelijks,
+  hasPeriodiekeOnttrekking,
+  afbouwProfiel,
 }) => {
-  const hasPeriodiekeOnttrekking = periodiekeOnttrekkingMaandelijks > 0;
   const inkomensdoelHaalbaar = data.faalkans <= 0.01;
 
   return (
@@ -65,7 +67,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           <MetricCard 
             title="Verwacht Rendement" 
             value={formatPct(data.verwacht_rendement_pct)} 
-            subtitle="Gemiddeld per jaar"
+            subtitle={afbouwProfiel ? 'Gemiddeld per jaar (incl. afbouw)' : 'Gemiddeld per jaar'}
           />
           <MetricCard 
             title="Pessimistisch" 
@@ -104,8 +106,9 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* MiFID II Kosten Breakdown */}
+          <CopyableSection label="Verwachte kosten in de loop van de tijd">
           <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6">Verwachte kosten in de loop van de tijd</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 pr-16">Verwachte kosten in de loop van de tijd</h3>
             <div className="overflow-x-auto">
               <table className="w-full text-sm text-left">
                 <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white">
@@ -121,20 +124,22 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
                 </thead>
                 <tbody className="divide-y divide-gray-200 dark:divide-neutral-600 dark:text-gray-400">
                   {(() => {
-                    const totalPct = data.gemiddelde_totale_kosten_pct;
-                    const ratio = (componentPct: number) => totalPct > 0 ? componentPct / totalPct : 0;
+                    const year1Pct = (eur: number) =>
+                      data.kosten_eur_jaar1 > 0
+                        ? (eur / data.kosten_eur_jaar1) * data.kosten_pct_jaar1
+                        : 0;
                     const rows = [
-                      { label: 'Bloei beheervergoeding', avgPct: data.gemiddelde_beheerkosten_pct },
-                      { label: "Fondskosten", avgPct: data.gemiddelde_fondskosten_pct },
-                      { label: 'Transactiekosten (spread)', avgPct: data.gemiddelde_spreadkosten_pct },
+                      { label: 'Bloei beheervergoeding', avgPct: data.gemiddelde_beheerkosten_pct, jaar1Eur: data.beheerkosten_eur_jaar1 ?? 0 },
+                      { label: "Fondskosten", avgPct: data.gemiddelde_fondskosten_pct, jaar1Eur: data.fondskosten_eur_jaar1 ?? 0 },
+                      { label: 'Transactiekosten (spread)', avgPct: data.gemiddelde_spreadkosten_pct, jaar1Eur: data.spreadkosten_eur_jaar1 ?? 0 },
                     ];
                     return (
                       <>
                         {rows.map((row) => (
                           <tr key={row.label} className="bg-white dark:bg-[#000000]">
                             <td className="px-4 py-3 font-medium">{row.label}</td>
-                            <td className="px-4 py-3 text-right border-l border-gray-100 dark:border-neutral-700">{formatPct(ratio(row.avgPct) * data.kosten_pct_jaar1, 2)}</td>
-                            <td className="px-4 py-3 text-right border-r border-gray-100 dark:border-neutral-700">{formatCurrency(ratio(row.avgPct) * data.kosten_eur_jaar1)}</td>
+                            <td className="px-4 py-3 text-right border-l border-gray-100 dark:border-neutral-700">{formatPct(year1Pct(row.jaar1Eur), 2)}</td>
+                            <td className="px-4 py-3 text-right border-r border-gray-100 dark:border-neutral-700">{formatCurrency(row.jaar1Eur)}</td>
                             <td className="px-4 py-3 text-center">{formatPct(row.avgPct, 2)}</td>
                           </tr>
                         ))}
@@ -151,19 +156,23 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
               </table>
             </div>
           </div>
+          </CopyableSection>
 
           {/* Kostenopbouw taartdiagram */}
+          <CopyableSection label="Kostenopbouw">
           <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Kostenopbouw</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pr-16">Kostenopbouw</h3>
             <KostenPieChart data={data} />
           </div>
+          </CopyableSection>
 
         </div>
 
         {/* Cashflow per Year Table */}
+        <CopyableSection label="Voorbeeldscenario jaarlijks overzicht">
         <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
-          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Voorbeeldscenario jaarlijks overzicht</h3>
-          <div className="overflow-x-auto max-h-96">
+          <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pr-16">Voorbeeldscenario jaarlijks overzicht</h3>
+          <div className="overflow-x-auto max-h-96" data-copy-expand>
             <table className="w-full text-sm text-left">
               <thead className="text-xs text-gray-500 uppercase bg-gray-50 dark:bg-[#000000] dark:text-white sticky top-0">
                 <tr>
@@ -231,11 +240,18 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
             </table>
           </div>
         </div>
+        </CopyableSection>
 
         {/* Grafieken */}
-        <ComponentChart data={data} startvermogen={startvermogen} />
-        <VermogenChart data={data} />
-        <VerdelingChart data={data} />
+        <CopyableSection label="Opbouw componenten" className="mt-8">
+          <ComponentChart data={data} startvermogen={startvermogen} />
+        </CopyableSection>
+        <CopyableSection label="Vermogensopbouw" className="mt-8">
+          <VermogenChart data={data} />
+        </CopyableSection>
+        <CopyableSection label="Kansverdeling eindvermogen" className="mt-6">
+          <VerdelingChart data={data} />
+        </CopyableSection>
     </div>
   );
 };

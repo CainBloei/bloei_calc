@@ -12,6 +12,8 @@ export interface RekenInput {
   n_scenarios: number;
   periodieke_storting_maandelijks: number;
   periodieke_onttrekking_maandelijks: number;
+  periodieke_storting_jaarlijks: number;
+  periodieke_onttrekking_jaarlijks: number;
   periodieke_storting_startdatum?: string;
   periodieke_storting_einddatum?: string;
   periodieke_onttrekking_startdatum?: string;
@@ -28,6 +30,9 @@ export interface RekenInput {
 export interface RekenOutput {
   kosten_eur_jaar1: number;
   kosten_pct_jaar1: number;
+  beheerkosten_eur_jaar1: number;
+  fondskosten_eur_jaar1: number;
+  spreadkosten_eur_jaar1: number;
   verwacht_rendement_pct: number;
   
   // MiFID II uitsplitsing

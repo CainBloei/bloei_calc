@@ -102,6 +102,80 @@ class TestAfbouwProfiel:
         ))
         assert out.tijdlijn_profiel[-1] == "Niet beleggen"
 
+    def test_without_afbouw_matches_start_profile_return(self):
+        out = bereken_kosten(_base_input(profiel="Neutraal", afbouw_profiel=False))
+        assert out.verwacht_rendement_pct == pytest.approx(5.7422, abs=1e-6)
+
+    def test_afbouw_lowers_expected_return_and_end_wealth(self):
+        kwargs = dict(profiel="Zeer offensief", horizon_jaren=20, n_scenarios=200)
+        out_off = bereken_kosten(_base_input(afbouw_profiel=False, **kwargs))
+        out_on = bereken_kosten(_base_input(afbouw_profiel=True, **kwargs))
+        assert out_off.verwacht_rendement_pct == pytest.approx(8.037, abs=1e-6)
+        assert out_on.verwacht_rendement_pct < out_off.verwacht_rendement_pct
+        assert out_on.verwacht_rendement_pct < 8.037
+        assert out_on.tijdlijn_profiel[-1] == "Niet beleggen"
+        assert out_on.verwacht_eindvermogen_netto < out_off.verwacht_eindvermogen_netto
+
+
+def _yearly_hit_months(cashflow: list[float], amount: float, tol: float = 1e-6) -> list[int]:
+    return [i for i, v in enumerate(cashflow) if abs(v - amount) < tol]
+
+
+class TestYearlyCashflows:
+    def test_yearly_storting_increases_vermogen(self):
+        out_without = bereken_kosten(_base_input())
+        out_with = bereken_kosten(_base_input(periodieke_storting_jaarlijks=6_000))
+        assert out_with.verwacht_eindvermogen_netto > out_without.verwacht_eindvermogen_netto
+
+    def test_yearly_onttrekking_decreases_vermogen(self):
+        out_without = bereken_kosten(_base_input())
+        out_with = bereken_kosten(_base_input(periodieke_onttrekking_jaarlijks=2_000))
+        assert out_with.verwacht_eindvermogen_netto < out_without.verwacht_eindvermogen_netto
+
+    def test_yearly_storting_once_per_year(self):
+        out = bereken_kosten(_base_input(
+            periodieke_storting_jaarlijks=6_000,
+            horizon_jaren=5,
+            profiel="Niet beleggen",
+        ))
+        hits = _yearly_hit_months(out.tijdlijn_cashflow_netto, 6_000)
+        assert hits == [1, 13, 25, 37, 49]
+        assert len(hits) == 5
+
+    def test_yearly_onttrekking_once_per_year(self):
+        out = bereken_kosten(_base_input(
+            periodieke_onttrekking_jaarlijks=3_000,
+            horizon_jaren=4,
+            profiel="Niet beleggen",
+        ))
+        hits = [i for i, v in enumerate(out.tijdlijn_cashflow_netto) if abs(v + 3_000) < 1e-6]
+        assert hits == [1, 13, 25, 37]
+
+    def test_yearly_combined_with_monthly(self):
+        out = bereken_kosten(_base_input(
+            periodieke_storting_maandelijks=100,
+            periodieke_storting_jaarlijks=1_000,
+            horizon_jaren=2,
+            profiel="Niet beleggen",
+        ))
+        cf = out.tijdlijn_cashflow_netto
+        anniversary = [i for i in range(1, len(cf)) if abs(cf[i] - 1_100) < 1e-6]
+        monthly_only = [i for i in range(1, len(cf)) if abs(cf[i] - 100) < 1e-6]
+        assert anniversary == [1, 13]
+        assert len(monthly_only) == 22
+
+    def test_yearly_respects_start_end_window(self):
+        out = bereken_kosten(_base_input(
+            startdatum=date(2026, 1, 1),
+            horizon_jaren=15,
+            periodieke_storting_jaarlijks=1_000,
+            periodieke_storting_startdatum=date(2028, 6, 1),
+            periodieke_storting_einddatum=date(2030, 6, 1),
+            profiel="Niet beleggen",
+        ))
+        hits = _yearly_hit_months(out.tijdlijn_cashflow_netto, 1_000)
+        assert hits == [30, 42, 54]
+
 
 class TestKostenJaar1:
     def test_kosten_reflect_periodic_stortingen(self):
@@ -113,6 +187,12 @@ class TestKostenJaar1:
         out = bereken_kosten(_base_input())
         assert out.kosten_pct_jaar1 == pytest.approx(
             (out.kosten_eur_jaar1 / 100_000) * 100, abs=0.01
+        )
+
+    def test_kosten_jaar1_components_sum_to_total(self):
+        out = bereken_kosten(_base_input())
+        assert out.beheerkosten_eur_jaar1 + out.fondskosten_eur_jaar1 + out.spreadkosten_eur_jaar1 == pytest.approx(
+            out.kosten_eur_jaar1, abs=0.02
         )
 
 

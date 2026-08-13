@@ -9,7 +9,8 @@ import type { RekenInput } from './types';
 function App() {
   const { calculate, data, isLoading, error } = useCalculate();
   const [startvermogen, setStartvermogen] = useState(100000);
-  const [periodiekeOnttrekkingMaandelijks, setPeriodiekeOnttrekkingMaandelijks] = useState(0);
+  const [hasPeriodiekeOnttrekking, setHasPeriodiekeOnttrekking] = useState(false);
+  const [afbouwProfiel, setAfbouwProfiel] = useState(false);
   const [isExportingExcel, setIsExportingExcel] = useState(false);
 
   const handleDownloadExcel = async () => {
@@ -26,7 +27,11 @@ function App() {
 
   const handleCalculate = (inputData: RekenInput) => {
     setStartvermogen(Number(inputData.startvermogen));
-    setPeriodiekeOnttrekkingMaandelijks(Number(inputData.periodieke_onttrekking_maandelijks ?? 0));
+    setHasPeriodiekeOnttrekking(
+      Number(inputData.periodieke_onttrekking_maandelijks ?? 0) > 0
+      || Number(inputData.periodieke_onttrekking_jaarlijks ?? 0) > 0
+    );
+    setAfbouwProfiel(Boolean(inputData.afbouw_profiel));
     calculate(inputData);
   }
 
@@ -102,7 +107,8 @@ function App() {
               <ResultsView
                 data={data}
                 startvermogen={startvermogen}
-                periodiekeOnttrekkingMaandelijks={periodiekeOnttrekkingMaandelijks}
+                hasPeriodiekeOnttrekking={hasPeriodiekeOnttrekking}
+                afbouwProfiel={afbouwProfiel}
               />
             </div>
           )}

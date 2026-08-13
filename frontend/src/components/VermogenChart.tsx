@@ -219,8 +219,8 @@ export const VermogenChart: React.FC<VermogenChartProps> = ({ data }) => {
   };
 
   return (
-    <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600 mt-8">
-      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Vermogensopbouw</h3>
+    <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
+      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6 pr-16">Vermogensopbouw</h3>
       <div className="h-[400px]">
         <Line data={chartData} options={options} />
       </div>

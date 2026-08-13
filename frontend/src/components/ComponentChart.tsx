@@ -152,8 +152,8 @@ export const ComponentChart: React.FC<ComponentChartProps> = ({ data, startvermo
   };
 
   return (
-    <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600 mt-8">
-      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2">Opbouw Componenten</h3>
+    <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
+      <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-2 pr-16">Opbouw Componenten</h3>
       <p className="text-sm text-gray-500 mb-6">Verdeling van inkomende en uitgaande geldstromen.</p>
       <div className="h-[350px]">
         <Bar data={chartData} options={options} />

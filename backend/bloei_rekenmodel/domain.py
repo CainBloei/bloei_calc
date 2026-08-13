@@ -74,6 +74,14 @@ class RekenInput(BaseModel):
         0.0, ge=0, le=MAX_MONETARY_EUR,
         description="periodieke_onttrekking_maandelijks moet >= 0 zijn."
     )
+    periodieke_storting_jaarlijks: float = Field(
+        0.0, ge=0, le=MAX_MONETARY_EUR,
+        description="periodieke_storting_jaarlijks moet >= 0 zijn."
+    )
+    periodieke_onttrekking_jaarlijks: float = Field(
+        0.0, ge=0, le=MAX_MONETARY_EUR,
+        description="periodieke_onttrekking_jaarlijks moet >= 0 zijn."
+    )
     periodieke_storting_startdatum: date | None = None
     periodieke_storting_einddatum: date | None = None
     periodieke_onttrekking_startdatum: date | None = None
@@ -125,11 +133,16 @@ class RekenOutput(BaseModel):
     - ``tijdlijn_datums[m]`` is the month-step marker ``startdatum + m maanden``.
       It marks the end of simulation step m.
     - One-time cashflows are applied at the BEGINNING of a calendar month bucket.
-    - Periodic cashflows are applied at the END of each month.
+    - Periodic cashflows (monthly and yearly) are applied at the END of each month.
+    - Yearly periodic cashflows fall in the calendar month of the period start
+      (else the simulation start date), once per year within the date window.
     """
 
     kosten_eur_jaar1: float
     kosten_pct_jaar1: float
+    beheerkosten_eur_jaar1: float
+    fondskosten_eur_jaar1: float
+    spreadkosten_eur_jaar1: float
     verwacht_rendement_pct: float
     
     # MiFID II uitsplitsing

@@ -34,6 +34,25 @@ def _month_index_bucket(start: date, event: date) -> int:
     return (event.year - start.year) * 12 + (event.month - start.month) + 1
 
 
+def _is_yearly_cashflow_month(
+    *,
+    startdatum: date,
+    month_index: int,
+    anniversary_date: date,
+    start_idx: int,
+    end_idx: int,
+) -> bool:
+    """True when this simulation month is the yearly anniversary month within the window.
+
+    The payment falls at the end of the calendar month of ``anniversary_date``
+    (period start, else simulation start), once per year.
+    """
+    if month_index < start_idx or month_index > end_idx:
+        return False
+    month_date = _add_months(startdatum, month_index - 1)
+    return month_date.month == anniversary_date.month
+
+
 def _clamp_period_to_month_indices(
     *,
     startdatum: date,
@@ -129,6 +148,9 @@ class SimulationResult(TypedDict):
     monthly_paths_netto: np.ndarray
     monthly_net_cashflow: np.ndarray
     monthly_cumulative_costs: np.ndarray
+    monthly_cumulative_beheer: np.ndarray
+    monthly_cumulative_fonds: np.ndarray
+    monthly_cumulative_spread: np.ndarray
     monthly_net_shortfall: np.ndarray
     realized_deposits: np.ndarray
     realized_withdrawals_bruto: np.ndarray
@@ -140,6 +162,7 @@ class SimulationResult(TypedDict):
     costs_base_sum: np.ndarray
     has_withdrawal_shortfall: np.ndarray
     total_withdrawal_shortfall_netto: np.ndarray
+    
 
 
 def _apply_withdrawal_request_vectorized(requested: float, current_values: np.ndarray) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
@@ -236,6 +259,9 @@ def _simulate_all_scenarios(
     monthly_values_netto = np.zeros((total_months + 1, N))
     monthly_net_cashflow = np.zeros((total_months + 1, N))
     monthly_cumulative_costs = np.zeros((total_months + 1, N))
+    monthly_cumulative_beheer = np.zeros((total_months + 1, N))
+    monthly_cumulative_fonds = np.zeros((total_months + 1, N))
+    monthly_cumulative_spread = np.zeros((total_months + 1, N))
     monthly_net_shortfall = np.zeros((total_months + 1, N))
 
     monthly_values_bruto[0, :] = current_bruto
@@ -306,22 +332,42 @@ def _simulate_all_scenarios(
             total_spread_costs_paid += spread
             total_costs_paid += tot_kosten
 
+        storting_val = 0.0
         if inp.periodieke_storting_maandelijks > 0 and storting_start_idx <= month <= storting_end_idx:
-            val = inp.periodieke_storting_maandelijks
-            current_bruto += val
-            current_netto += val
-            realized_deposits += val
-            net_cashflow_month += val
+            storting_val += inp.periodieke_storting_maandelijks
+        if inp.periodieke_storting_jaarlijks > 0 and _is_yearly_cashflow_month(
+            startdatum=inp.startdatum,
+            month_index=month,
+            anniversary_date=inp.periodieke_storting_startdatum or inp.startdatum,
+            start_idx=storting_start_idx,
+            end_idx=storting_end_idx,
+        ):
+            storting_val += inp.periodieke_storting_jaarlijks
+        if storting_val > 0:
+            current_bruto += storting_val
+            current_netto += storting_val
+            realized_deposits += storting_val
+            net_cashflow_month += storting_val
 
+        onttrekking_req = 0.0
         if inp.periodieke_onttrekking_maandelijks > 0 and onttrekking_start_idx <= month <= onttrekking_end_idx:
-            req = inp.periodieke_onttrekking_maandelijks
-            current_bruto, pb, sb = _apply_withdrawal_request_vectorized(req, current_bruto)
-            current_netto, pn, sn = _apply_withdrawal_request_vectorized(req, current_netto)
+            onttrekking_req += inp.periodieke_onttrekking_maandelijks
+        if inp.periodieke_onttrekking_jaarlijks > 0 and _is_yearly_cashflow_month(
+            startdatum=inp.startdatum,
+            month_index=month,
+            anniversary_date=inp.periodieke_onttrekking_startdatum or inp.startdatum,
+            start_idx=onttrekking_start_idx,
+            end_idx=onttrekking_end_idx,
+        ):
+            onttrekking_req += inp.periodieke_onttrekking_jaarlijks
+        if onttrekking_req > 0:
+            current_bruto, pb, sb = _apply_withdrawal_request_vectorized(onttrekking_req, current_bruto)
+            current_netto, pn, sn = _apply_withdrawal_request_vectorized(onttrekking_req, current_netto)
             realized_withdrawals_bruto += pb
             realized_withdrawals_netto += pn
             total_withdrawal_shortfall_netto += sn
             has_withdrawal_shortfall |= (sn > 0)
-            net_cashflow_month -= req
+            net_cashflow_month -= onttrekking_req
             shortfall_month += sn
 
         current_bruto = np.maximum(0.0, current_bruto)
@@ -332,6 +378,9 @@ def _simulate_all_scenarios(
         monthly_net_cashflow[month, :] = net_cashflow_month
         monthly_cumulative_costs[month, :] = total_costs_paid
         monthly_net_shortfall[month, :] = shortfall_month
+        monthly_cumulative_beheer[month, :] = total_management_costs_paid
+        monthly_cumulative_fonds[month, :] = total_fund_costs_paid
+        monthly_cumulative_spread[month, :] = total_spread_costs_paid
 
     end_cashflow_net = np.zeros(N)
     end_shortfall_net = np.zeros(N)
@@ -367,6 +416,9 @@ def _simulate_all_scenarios(
         "monthly_paths_netto": monthly_values_netto,
         "monthly_net_cashflow": monthly_net_cashflow,
         "monthly_cumulative_costs": monthly_cumulative_costs,
+        "monthly_cumulative_beheer": monthly_cumulative_beheer,
+        "monthly_cumulative_fonds": monthly_cumulative_fonds,
+        "monthly_cumulative_spread": monthly_cumulative_spread,
         "monthly_net_shortfall": monthly_net_shortfall,
         "realized_deposits": realized_deposits,
         "realized_withdrawals_bruto": realized_withdrawals_bruto,
@@ -410,7 +462,6 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     )
 
     start_profiel = inp.profiel
-    verwacht_rendement_pct = float(verwacht_rendement_by_profiel.get(start_profiel, 0.0))
 
     total_months = inp.horizon_jaren * 12
     end_date = _add_years(inp.startdatum, inp.horizon_jaren)
@@ -477,6 +528,9 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     # Kosten 1e jaar: mediaan van de werkelijke cumulatieve kosten na 12 maanden
     year1_end_idx = min(12, total_months)
     kosten_eur_jaar1 = _safe_float(float(np.median(monthly_cumulative_costs_arr[year1_end_idx, :])))
+    beheerkosten_eur_jaar1 = _safe_float(float(np.median(results["monthly_cumulative_beheer"][year1_end_idx, :])))
+    fondskosten_eur_jaar1 = _safe_float(float(np.median(results["monthly_cumulative_fonds"][year1_end_idx, :])))
+    spreadkosten_eur_jaar1 = _safe_float(float(np.median(results["monthly_cumulative_spread"][year1_end_idx, :])))
     kosten_pct_jaar1 = (
         _safe_float((kosten_eur_jaar1 / inp.startvermogen) * 100.0) if inp.startvermogen > 0 else 0.0
     )
@@ -553,9 +607,20 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         else:
             tijdlijn_profiel.append(inp.profiel)
 
+    maand_rendementen = [
+        float(verwacht_rendement_by_profiel.get(p, 0.0))
+        for p in tijdlijn_profiel[1:]
+    ]
+    verwacht_rendement_pct = (
+        float(np.mean(maand_rendementen)) if maand_rendementen else 0.0
+    )
+
     return RekenOutput(
         kosten_eur_jaar1=max(0.0, kosten_eur_jaar1),
         kosten_pct_jaar1=max(0.0, kosten_pct_jaar1),
+        beheerkosten_eur_jaar1=max(0.0, beheerkosten_eur_jaar1),
+        fondskosten_eur_jaar1=max(0.0, fondskosten_eur_jaar1),
+        spreadkosten_eur_jaar1=max(0.0, spreadkosten_eur_jaar1),
         verwacht_rendement_pct=_safe_float(verwacht_rendement_pct),
 
         verwacht_eindvermogen_bruto=verwacht_eindvermogen_bruto,

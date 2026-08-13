@@ -100,6 +100,8 @@ const schema = yup.object({
   n_scenarios: yup.number().min(1).max(10000).default(5000),
   periodieke_storting_maandelijks: yup.number().min(0).default(0),
   periodieke_onttrekking_maandelijks: yup.number().min(0).default(0),
+  periodieke_storting_jaarlijks: yup.number().min(0).default(0),
+  periodieke_onttrekking_jaarlijks: yup.number().min(0).default(0),
   doelvermogen: yup.number().min(0).optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_storting_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_storting_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
@@ -133,6 +135,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
       n_scenarios: 5000,
       periodieke_storting_maandelijks: 0,
       periodieke_onttrekking_maandelijks: 0,
+      periodieke_storting_jaarlijks: 0,
+      periodieke_onttrekking_jaarlijks: 0,
       doelvermogen: undefined,
       eenmalige_cashflows: [],
       afbouw_profiel: false,
@@ -148,6 +152,8 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
 
   const watchPeriodiekeStorting = watch('periodieke_storting_maandelijks');
   const watchPeriodiekeOnttrekking = watch('periodieke_onttrekking_maandelijks');
+  const watchPeriodiekeStortingJaarlijks = watch('periodieke_storting_jaarlijks');
+  const watchPeriodiekeOnttrekkingJaarlijks = watch('periodieke_onttrekking_jaarlijks');
   const watchIsBloeiPlus = watch('is_bloei_plus');
   const watchStartdatum = watch('startdatum');
   const watchHorizonJaren = watch('horizon_jaren');
@@ -281,8 +287,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
             <label className={labelClass}>Maandelijkse Inleg (€)</label>
             <CurrencyField name="periodieke_storting_maandelijks" control={control} />
           </div>
+
+          <div>
+            <label className={labelClass}>Jaarlijkse Inleg (€)</label>
+            <CurrencyField name="periodieke_storting_jaarlijks" control={control} />
+          </div>
           
-          {watchPeriodiekeStorting > 0 && (
+          {(watchPeriodiekeStorting > 0 || watchPeriodiekeStortingJaarlijks > 0) && (
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
@@ -337,8 +348,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
             <label className={labelClass}>Maandelijkse Onttrekking (€)</label>
             <CurrencyField name="periodieke_onttrekking_maandelijks" control={control} />
           </div>
+
+          <div>
+            <label className={labelClass}>Jaarlijkse Onttrekking (€)</label>
+            <CurrencyField name="periodieke_onttrekking_jaarlijks" control={control} />
+          </div>
           
-          {watchPeriodiekeOnttrekking > 0 && (
+          {(watchPeriodiekeOnttrekking > 0 || watchPeriodiekeOnttrekkingJaarlijks > 0) && (
             <div className="flex gap-2">
               <div className="flex-1">
                 <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>

@@ -131,8 +131,8 @@ export const VerdelingChart: React.FC<Props> = ({ data }) => {
     : { borderRadius: '8px' as const, border: 'none', backgroundColor: '#ffffff', color: '#111827', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' };
 
   return (
-    <div className="bg-white dark:bg-[#000000] p-6 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-600 mt-6">
-      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2">
+    <div className="bg-white dark:bg-[#000000] p-6 rounded-xl shadow-sm border border-gray-100 dark:border-neutral-600">
+      <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-2 pr-16">
         Kansverdeling Eindvermogen
       </h3>
       <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
