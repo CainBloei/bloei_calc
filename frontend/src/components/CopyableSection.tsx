@@ -6,6 +6,7 @@ interface CopyableSectionProps {
   label: string;
   children: React.ReactNode;
   className?: string;
+  copyMode?: 'image' | 'table';
 }
 
 function slugify(label: string): string {
@@ -38,10 +39,63 @@ async function copyBlobToClipboard(blob: Blob): Promise<boolean> {
   }
 }
 
+function cellPlainText(cell: HTMLTableCellElement): string {
+  return (cell.innerText || cell.textContent || '')
+    .replace(/\u00a0/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function serializeTable(table: HTMLTableElement): { html: string; tsv: string } {
+  const clone = table.cloneNode(true) as HTMLTableElement;
+  clone.querySelectorAll('[data-copy-ignore]').forEach((el) => el.remove());
+
+  const rows = Array.from(clone.querySelectorAll('tr'));
+  const tsvLines: string[] = [];
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll('th, td'));
+    tsvLines.push(cells.map((c) => cellPlainText(c as HTMLTableCellElement)).join('\t'));
+  }
+
+  return {
+    html: `<table>${clone.innerHTML}</table>`,
+    tsv: tsvLines.join('\n'),
+  };
+}
+
+async function copyTableToClipboard(table: HTMLTableElement): Promise<boolean> {
+  const { html, tsv } = serializeTable(table);
+
+  if (typeof ClipboardItem !== 'undefined' && navigator.clipboard?.write) {
+    try {
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          'text/html': new Blob([html], { type: 'text/html' }),
+          'text/plain': new Blob([tsv], { type: 'text/plain' }),
+        }),
+      ]);
+      return true;
+    } catch {
+      // Fall through to writeText
+    }
+  }
+
+  if (navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(tsv);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+  return false;
+}
+
 export const CopyableSection: React.FC<CopyableSectionProps> = ({
   label,
   children,
   className = '',
+  copyMode = 'image',
 }) => {
   const rootRef = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<'idle' | 'copying' | 'copied' | 'error'>('idle');
@@ -51,51 +105,76 @@ export const CopyableSection: React.FC<CopyableSectionProps> = ({
     if (!root || status === 'copying') return;
 
     setStatus('copying');
-    const expanded = root.querySelectorAll<HTMLElement>('[data-copy-expand]');
-    const previous: Array<{ el: HTMLElement; maxHeight: string; overflow: string }> = [];
-    expanded.forEach((el) => {
-      previous.push({
-        el,
-        maxHeight: el.style.maxHeight,
-        overflow: el.style.overflow,
-      });
-      el.style.maxHeight = 'none';
-      el.style.overflow = 'visible';
-    });
 
     try {
-      await new Promise<void>((resolve) => {
-        requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
-      });
-
-      const isDark = document.documentElement.classList.contains('dark');
-      const blob = await toBlob(root, {
-        pixelRatio: 2,
-        cacheBust: true,
-        backgroundColor: isDark ? '#000000' : '#ffffff',
-        filter: (node) => !node.hasAttribute?.('data-copy-ignore'),
-      });
-
-      if (!blob) {
-        setStatus('error');
+      if (copyMode === 'table') {
+        const table = root.querySelector('table');
+        if (!table) {
+          setStatus('error');
+          return;
+        }
+        const copied = await copyTableToClipboard(table);
+        setStatus(copied ? 'copied' : 'error');
         return;
       }
 
-      const copied = await copyBlobToClipboard(blob);
-      if (!copied) {
-        downloadBlob(blob, `${slugify(label)}.png`);
+      const card = (root.firstElementChild as HTMLElement | null) ?? root;
+      const expanded = root.querySelectorAll<HTMLElement>('[data-copy-expand]');
+      const previous: Array<{ el: HTMLElement; maxHeight: string; overflow: string }> = [];
+
+      const pushStyle = (el: HTMLElement) => {
+        previous.push({
+          el,
+          maxHeight: el.style.maxHeight,
+          overflow: el.style.overflow,
+        });
+        el.style.maxHeight = 'none';
+        el.style.overflow = 'visible';
+      };
+
+      pushStyle(card);
+      expanded.forEach(pushStyle);
+
+      try {
+        await new Promise<void>((resolve) => {
+          requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+        });
+
+        const isDark = document.documentElement.classList.contains('dark');
+        const width = Math.max(card.scrollWidth, card.offsetWidth);
+        const height = Math.max(card.scrollHeight, card.offsetHeight);
+
+        const blob = await toBlob(card, {
+          pixelRatio: 2,
+          cacheBust: true,
+          width,
+          height,
+          backgroundColor: isDark ? '#000000' : '#ffffff',
+          filter: (node) => !node.hasAttribute?.('data-copy-ignore'),
+        });
+
+        if (!blob) {
+          setStatus('error');
+          return;
+        }
+
+        const copied = await copyBlobToClipboard(blob);
+        if (!copied) {
+          downloadBlob(blob, `${slugify(label)}.png`);
+        }
+        setStatus('copied');
+      } finally {
+        previous.forEach(({ el, maxHeight, overflow }) => {
+          el.style.maxHeight = maxHeight;
+          el.style.overflow = overflow;
+        });
       }
-      setStatus('copied');
     } catch {
       setStatus('error');
     } finally {
-      previous.forEach(({ el, maxHeight, overflow }) => {
-        el.style.maxHeight = maxHeight;
-        el.style.overflow = overflow;
-      });
       window.setTimeout(() => setStatus('idle'), 2000);
     }
-  }, [label, status]);
+  }, [copyMode, label, status]);
 
   const feedback =
     status === 'copied' ? 'Gekopieerd' : status === 'error' ? 'Kopiëren mislukt' : null;

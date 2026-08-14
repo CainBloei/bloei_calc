@@ -86,6 +86,10 @@ class RekenInput(BaseModel):
     periodieke_storting_einddatum: date | None = None
     periodieke_onttrekking_startdatum: date | None = None
     periodieke_onttrekking_einddatum: date | None = None
+    periodieke_storting_jaarlijks_startdatum: date | None = None
+    periodieke_storting_jaarlijks_einddatum: date | None = None
+    periodieke_onttrekking_jaarlijks_startdatum: date | None = None
+    periodieke_onttrekking_jaarlijks_einddatum: date | None = None
     eenmalige_cashflows: list[EenmaligeCashflow] = Field(
         default_factory=list, max_length=MAX_EENMALIGE_CASHFLOWS
     )

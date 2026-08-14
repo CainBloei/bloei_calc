@@ -67,7 +67,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
           <MetricCard 
             title="Verwacht Rendement" 
             value={formatPct(data.verwacht_rendement_pct)} 
-            subtitle={afbouwProfiel ? 'Gemiddeld per jaar (incl. afbouw)' : 'Gemiddeld per jaar'}
+            subtitle={afbouwProfiel ? 'Gemiddeld per jaar zolang belegd' : 'Gemiddeld per jaar'}
           />
           <MetricCard 
             title="Pessimistisch" 
@@ -106,7 +106,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           
           {/* MiFID II Kosten Breakdown */}
-          <CopyableSection label="Verwachte kosten in de loop van de tijd">
+          <CopyableSection label="Verwachte kosten in de loop van de tijd" copyMode="table">
           <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
             <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-6 pr-16">Verwachte kosten in de loop van de tijd</h3>
             <div className="overflow-x-auto">
@@ -169,7 +169,7 @@ export const ResultsView: React.FC<ResultsViewProps> = ({
         </div>
 
         {/* Cashflow per Year Table */}
-        <CopyableSection label="Voorbeeldscenario jaarlijks overzicht">
+        <CopyableSection label="Voorbeeldscenario jaarlijks overzicht" copyMode="table">
         <div className="bg-white dark:bg-[#000000] rounded-xl p-6 shadow-sm border border-gray-100 dark:border-neutral-600">
           <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4 pr-16">Voorbeeldscenario jaarlijks overzicht</h3>
           <div className="overflow-x-auto max-h-96" data-copy-expand>

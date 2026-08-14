@@ -233,6 +233,10 @@ def _simulate_all_scenarios(
     storting_end_idx: int,
     onttrekking_start_idx: int,
     onttrekking_end_idx: int,
+    storting_jaarlijks_start_idx: int,
+    storting_jaarlijks_end_idx: int,
+    onttrekking_jaarlijks_start_idx: int,
+    onttrekking_jaarlijks_end_idx: int,
     verwacht_rendement_by_profiel: dict[str, float],
     volatiliteit_by_profiel: dict[str, float],
     start_profiel: str,
@@ -338,9 +342,9 @@ def _simulate_all_scenarios(
         if inp.periodieke_storting_jaarlijks > 0 and _is_yearly_cashflow_month(
             startdatum=inp.startdatum,
             month_index=month,
-            anniversary_date=inp.periodieke_storting_startdatum or inp.startdatum,
-            start_idx=storting_start_idx,
-            end_idx=storting_end_idx,
+            anniversary_date=inp.periodieke_storting_jaarlijks_startdatum or inp.startdatum,
+            start_idx=storting_jaarlijks_start_idx,
+            end_idx=storting_jaarlijks_end_idx,
         ):
             storting_val += inp.periodieke_storting_jaarlijks
         if storting_val > 0:
@@ -355,9 +359,9 @@ def _simulate_all_scenarios(
         if inp.periodieke_onttrekking_jaarlijks > 0 and _is_yearly_cashflow_month(
             startdatum=inp.startdatum,
             month_index=month,
-            anniversary_date=inp.periodieke_onttrekking_startdatum or inp.startdatum,
-            start_idx=onttrekking_start_idx,
-            end_idx=onttrekking_end_idx,
+            anniversary_date=inp.periodieke_onttrekking_jaarlijks_startdatum or inp.startdatum,
+            start_idx=onttrekking_jaarlijks_start_idx,
+            end_idx=onttrekking_jaarlijks_end_idx,
         ):
             onttrekking_req += inp.periodieke_onttrekking_jaarlijks
         if onttrekking_req > 0:
@@ -495,6 +499,20 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         periode_start=inp.periodieke_onttrekking_startdatum,
         periode_eind=inp.periodieke_onttrekking_einddatum,
     )
+    storting_jaarlijks_start_idx, storting_jaarlijks_end_idx = _clamp_period_to_month_indices(
+        startdatum=inp.startdatum,
+        enddatum_horizon=end_date,
+        total_months=total_months,
+        periode_start=inp.periodieke_storting_jaarlijks_startdatum,
+        periode_eind=inp.periodieke_storting_jaarlijks_einddatum,
+    )
+    onttrekking_jaarlijks_start_idx, onttrekking_jaarlijks_end_idx = _clamp_period_to_month_indices(
+        startdatum=inp.startdatum,
+        enddatum_horizon=end_date,
+        total_months=total_months,
+        periode_start=inp.periodieke_onttrekking_jaarlijks_startdatum,
+        periode_eind=inp.periodieke_onttrekking_jaarlijks_einddatum,
+    )
 
     rng = np.random.default_rng(seed=inp.rng_seed)
     
@@ -507,6 +525,10 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
         storting_end_idx=storting_end_idx,
         onttrekking_start_idx=onttrekking_start_idx,
         onttrekking_end_idx=onttrekking_end_idx,
+        storting_jaarlijks_start_idx=storting_jaarlijks_start_idx,
+        storting_jaarlijks_end_idx=storting_jaarlijks_end_idx,
+        onttrekking_jaarlijks_start_idx=onttrekking_jaarlijks_start_idx,
+        onttrekking_jaarlijks_end_idx=onttrekking_jaarlijks_end_idx,
         verwacht_rendement_by_profiel=verwacht_rendement_by_profiel,
         volatiliteit_by_profiel=volatiliteit_by_profiel,
         start_profiel=start_profiel,
@@ -610,6 +632,7 @@ def bereken_kosten(inp: RekenInput) -> RekenOutput:
     maand_rendementen = [
         float(verwacht_rendement_by_profiel.get(p, 0.0))
         for p in tijdlijn_profiel[1:]
+        if p != "Niet beleggen"
     ]
     verwacht_rendement_pct = (
         float(np.mean(maand_rendementen)) if maand_rendementen else 0.0

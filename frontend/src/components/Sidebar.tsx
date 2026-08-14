@@ -3,7 +3,7 @@ import { useForm, useFieldArray } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import { format } from 'date-fns';
-import { Plus, Trash2 } from 'lucide-react';
+import { ChevronDown, ChevronRight, Plus, Trash2 } from 'lucide-react';
 import { Settings } from './Settings';
 import type { RekenInput } from '../types';
 import CurrencyInput from 'react-currency-input-field';
@@ -91,13 +91,82 @@ const CurrencyField = ({
   />
 );
 
+type HorizonRange = { minDate: Date; maxDate: Date } | null;
+
+const OptionalDateRangeRow: React.FC<{
+  startName: keyof RekenInput;
+  endName: keyof RekenInput;
+  register: ReturnType<typeof useForm<RekenInput>>['register'];
+  setValue: ReturnType<typeof useForm<RekenInput>>['setValue'];
+  horizonRange: HorizonRange;
+  horizonMinStr?: string;
+  horizonMaxStr?: string;
+}> = ({
+  startName,
+  endName,
+  register,
+  setValue,
+  horizonRange,
+  horizonMinStr,
+  horizonMaxStr,
+}) => (
+  <div className="flex gap-2">
+    <div className="flex-1">
+      <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
+      <input
+        type="date"
+        min={horizonMinStr}
+        max={horizonMaxStr}
+        {...register(startName, {
+          onBlur: (e) => {
+            if (!horizonRange) return;
+            const original = e.target.value;
+            if (!original) return;
+            const clamped = clampDateStringToHorizon(original, horizonRange);
+            if (clamped !== original) {
+              setValue(startName, clamped as never, {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
+            }
+          },
+        })}
+        className={`${inputClass} cursor-pointer`}
+      />
+    </div>
+    <div className="flex-1">
+      <label className="block text-xs text-gray-500 mb-1">Einddatum (optioneel)</label>
+      <input
+        type="date"
+        min={horizonMinStr}
+        max={horizonMaxStr}
+        {...register(endName, {
+          onBlur: (e) => {
+            if (!horizonRange) return;
+            const original = e.target.value;
+            if (!original) return;
+            const clamped = clampDateStringToHorizon(original, horizonRange);
+            if (clamped !== original) {
+              setValue(endName, clamped as never, {
+                shouldValidate: true,
+                shouldDirty: true,
+              });
+            }
+          },
+        })}
+        className={`${inputClass} cursor-pointer`}
+      />
+    </div>
+  </div>
+);
+
 // Simplified Yup schema since we trust our defaults more and validation happens on backend as well.
 const schema = yup.object({
   startvermogen: yup.number().min(0).required(),
   profiel: yup.string().oneOf(['Defensief', 'Matig defensief', 'Neutraal', 'Offensief', 'Zeer offensief', 'Niet beleggen'] as const).required(),
   startdatum: yup.string().required(),
   horizon_jaren: yup.number().min(1).max(60).required(),
-  n_scenarios: yup.number().min(1).max(10000).default(5000),
+  n_scenarios: yup.number().min(1).max(10000).default(10000),
   periodieke_storting_maandelijks: yup.number().min(0).default(0),
   periodieke_onttrekking_maandelijks: yup.number().min(0).default(0),
   periodieke_storting_jaarlijks: yup.number().min(0).default(0),
@@ -107,6 +176,10 @@ const schema = yup.object({
   periodieke_storting_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_onttrekking_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   periodieke_onttrekking_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
+  periodieke_storting_jaarlijks_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
+  periodieke_storting_jaarlijks_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
+  periodieke_onttrekking_jaarlijks_startdatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
+  periodieke_onttrekking_jaarlijks_einddatum: yup.string().optional().nullable().transform((v, o) => o === '' ? null : v),
   eenmalige_cashflows: yup.array().of(
     yup.object({
       bedrag: yup.number().min(0).max(1e12).required(),
@@ -125,6 +198,7 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
+  const [cashflowsOpen, setCashflowsOpen] = React.useState(false);
   const { register, control, handleSubmit, watch, formState: { errors }, setValue } = useForm<RekenInput>({
     resolver: yupResolver(schema) as any, // eslint-disable-line @typescript-eslint/no-explicit-any
     defaultValues: {
@@ -132,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
       profiel: 'Zeer offensief',
       startdatum: format(new Date(), 'yyyy-MM-dd'),
       horizon_jaren: 15,
-      n_scenarios: 5000,
+      n_scenarios: 10000,
       periodieke_storting_maandelijks: 0,
       periodieke_onttrekking_maandelijks: 0,
       periodieke_storting_jaarlijks: 0,
@@ -281,127 +355,91 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCalculate, isLoading }) => {
 
         {/* Periodieke stortingen / onttrekkingen */}
         <section className="space-y-4">
-          <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9] border-b pb-2">Periodieke stortingen / onttrekkingen</h2>
-          
-          <div>
-            <label className={labelClass}>Maandelijkse Inleg (€)</label>
-            <CurrencyField name="periodieke_storting_maandelijks" control={control} />
-          </div>
+          <button
+            type="button"
+            onClick={() => setCashflowsOpen((open) => !open)}
+            aria-expanded={cashflowsOpen}
+            className="flex w-full items-center justify-between border-b pb-2 text-left cursor-pointer"
+          >
+            <h2 className="text-lg font-semibold text-bloei-petrol dark:text-[#eeeae9]">
+              Periodieke stortingen / onttrekkingen
+            </h2>
+            {cashflowsOpen ? (
+              <ChevronDown size={18} className="text-bloei-petrol dark:text-[#eeeae9] shrink-0" />
+            ) : (
+              <ChevronRight size={18} className="text-bloei-petrol dark:text-[#eeeae9] shrink-0" />
+            )}
+          </button>
 
-          <div>
-            <label className={labelClass}>Jaarlijkse Inleg (€)</label>
-            <CurrencyField name="periodieke_storting_jaarlijks" control={control} />
-          </div>
-          
-          {(watchPeriodiekeStorting > 0 || watchPeriodiekeStortingJaarlijks > 0) && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
-                <input
-                  type="date"
-                  min={horizonMinStr}
-                  max={horizonMaxStr}
-                  {...register('periodieke_storting_startdatum', {
-                    onBlur: (e) => {
-                      if (!horizonRange) return;
-                      const original = e.target.value;
-                      if (!original) return;
-                      const clamped = clampDateStringToHorizon(original, horizonRange);
-                      if (clamped !== original) {
-                        setValue('periodieke_storting_startdatum', clamped, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    },
-                  })}
-                  className={`${inputClass} cursor-pointer`}
-                />
+          {cashflowsOpen && (
+            <div className="space-y-4">
+              <div>
+                <label className={labelClass}>Maandelijkse Inleg (€)</label>
+                <CurrencyField name="periodieke_storting_maandelijks" control={control} />
               </div>
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Einddatum (optioneel)</label>
-                <input
-                  type="date"
-                  min={horizonMinStr}
-                  max={horizonMaxStr}
-                  {...register('periodieke_storting_einddatum', {
-                    onBlur: (e) => {
-                      if (!horizonRange) return;
-                      const original = e.target.value;
-                      if (!original) return;
-                      const clamped = clampDateStringToHorizon(original, horizonRange);
-                      if (clamped !== original) {
-                        setValue('periodieke_storting_einddatum', clamped, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    },
-                  })}
-                  className={`${inputClass} cursor-pointer`}
-                />
-              </div>
-            </div>
-          )}
 
-          <div>
-            <label className={labelClass}>Maandelijkse Onttrekking (€)</label>
-            <CurrencyField name="periodieke_onttrekking_maandelijks" control={control} />
-          </div>
+              {watchPeriodiekeStorting > 0 && (
+                <OptionalDateRangeRow
+                  startName="periodieke_storting_startdatum"
+                  endName="periodieke_storting_einddatum"
+                  register={register}
+                  setValue={setValue}
+                  horizonRange={horizonRange}
+                  horizonMinStr={horizonMinStr}
+                  horizonMaxStr={horizonMaxStr}
+                />
+              )}
 
-          <div>
-            <label className={labelClass}>Jaarlijkse Onttrekking (€)</label>
-            <CurrencyField name="periodieke_onttrekking_jaarlijks" control={control} />
-          </div>
-          
-          {(watchPeriodiekeOnttrekking > 0 || watchPeriodiekeOnttrekkingJaarlijks > 0) && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Startdatum (optioneel)</label>
-                <input
-                  type="date"
-                  min={horizonMinStr}
-                  max={horizonMaxStr}
-                  {...register('periodieke_onttrekking_startdatum', {
-                    onBlur: (e) => {
-                      if (!horizonRange) return;
-                      const original = e.target.value;
-                      if (!original) return;
-                      const clamped = clampDateStringToHorizon(original, horizonRange);
-                      if (clamped !== original) {
-                        setValue('periodieke_onttrekking_startdatum', clamped, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    },
-                  })}
-                  className={`${inputClass} cursor-pointer`}
-                />
+              <div>
+                <label className={labelClass}>Jaarlijkse Inleg (€)</label>
+                <CurrencyField name="periodieke_storting_jaarlijks" control={control} />
               </div>
-              <div className="flex-1">
-                <label className="block text-xs text-gray-500 mb-1">Einddatum (optioneel)</label>
-                <input
-                  type="date"
-                  min={horizonMinStr}
-                  max={horizonMaxStr}
-                  {...register('periodieke_onttrekking_einddatum', {
-                    onBlur: (e) => {
-                      if (!horizonRange) return;
-                      const original = e.target.value;
-                      if (!original) return;
-                      const clamped = clampDateStringToHorizon(original, horizonRange);
-                      if (clamped !== original) {
-                        setValue('periodieke_onttrekking_einddatum', clamped, {
-                          shouldValidate: true,
-                          shouldDirty: true,
-                        });
-                      }
-                    },
-                  })}
-                  className={`${inputClass} cursor-pointer`}
+
+              {watchPeriodiekeStortingJaarlijks > 0 && (
+                <OptionalDateRangeRow
+                  startName="periodieke_storting_jaarlijks_startdatum"
+                  endName="periodieke_storting_jaarlijks_einddatum"
+                  register={register}
+                  setValue={setValue}
+                  horizonRange={horizonRange}
+                  horizonMinStr={horizonMinStr}
+                  horizonMaxStr={horizonMaxStr}
                 />
+              )}
+
+              <div>
+                <label className={labelClass}>Maandelijkse Onttrekking (€)</label>
+                <CurrencyField name="periodieke_onttrekking_maandelijks" control={control} />
               </div>
+
+              {watchPeriodiekeOnttrekking > 0 && (
+                <OptionalDateRangeRow
+                  startName="periodieke_onttrekking_startdatum"
+                  endName="periodieke_onttrekking_einddatum"
+                  register={register}
+                  setValue={setValue}
+                  horizonRange={horizonRange}
+                  horizonMinStr={horizonMinStr}
+                  horizonMaxStr={horizonMaxStr}
+                />
+              )}
+
+              <div>
+                <label className={labelClass}>Jaarlijkse Onttrekking (€)</label>
+                <CurrencyField name="periodieke_onttrekking_jaarlijks" control={control} />
+              </div>
+
+              {watchPeriodiekeOnttrekkingJaarlijks > 0 && (
+                <OptionalDateRangeRow
+                  startName="periodieke_onttrekking_jaarlijks_startdatum"
+                  endName="periodieke_onttrekking_jaarlijks_einddatum"
+                  register={register}
+                  setValue={setValue}
+                  horizonRange={horizonRange}
+                  horizonMinStr={horizonMinStr}
+                  horizonMaxStr={horizonMaxStr}
+                />
+              )}
             </div>
           )}
         </section>

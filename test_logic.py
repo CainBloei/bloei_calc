@@ -116,6 +116,27 @@ class TestAfbouwProfiel:
         assert out_on.tijdlijn_profiel[-1] == "Niet beleggen"
         assert out_on.verwacht_eindvermogen_netto < out_off.verwacht_eindvermogen_netto
 
+    def test_afbouw_return_excludes_niet_beleggen_months(self):
+        rendementen = {
+            "Defensief": 3.4474,
+            "Matig defensief": 4.5948,
+            "Neutraal": 5.7422,
+            "Offensief": 6.8896,
+            "Zeer offensief": 8.037,
+            "Niet beleggen": 0.0,
+        }
+        out = bereken_kosten(_base_input(
+            profiel="Zeer offensief",
+            horizon_jaren=20,
+            afbouw_profiel=True,
+            n_scenarios=50,
+        ))
+        invested = [p for p in out.tijdlijn_profiel[1:] if p != "Niet beleggen"]
+        expected = sum(rendementen[p] for p in invested) / len(invested)
+        assert out.verwacht_rendement_pct == pytest.approx(expected, abs=1e-6)
+        assert "Niet beleggen" in out.tijdlijn_profiel
+        assert out.verwacht_rendement_pct > 0.0
+
 
 def _yearly_hit_months(cashflow: list[float], amount: float, tol: float = 1e-6) -> list[int]:
     return [i for i, v in enumerate(cashflow) if abs(v - amount) < tol]
@@ -169,12 +190,30 @@ class TestYearlyCashflows:
             startdatum=date(2026, 1, 1),
             horizon_jaren=15,
             periodieke_storting_jaarlijks=1_000,
-            periodieke_storting_startdatum=date(2028, 6, 1),
-            periodieke_storting_einddatum=date(2030, 6, 1),
+            periodieke_storting_jaarlijks_startdatum=date(2028, 6, 1),
+            periodieke_storting_jaarlijks_einddatum=date(2030, 6, 1),
             profiel="Niet beleggen",
         ))
         hits = _yearly_hit_months(out.tijdlijn_cashflow_netto, 1_000)
         assert hits == [30, 42, 54]
+
+    def test_monthly_and_yearly_independent_windows(self):
+        out = bereken_kosten(_base_input(
+            startdatum=date(2026, 1, 1),
+            horizon_jaren=5,
+            periodieke_storting_maandelijks=100,
+            periodieke_storting_startdatum=date(2026, 1, 1),
+            periodieke_storting_einddatum=date(2026, 12, 1),
+            periodieke_storting_jaarlijks=1_000,
+            periodieke_storting_jaarlijks_startdatum=date(2028, 6, 1),
+            periodieke_storting_jaarlijks_einddatum=date(2029, 6, 1),
+            profiel="Niet beleggen",
+        ))
+        cf = out.tijdlijn_cashflow_netto
+        monthly_hits = [i for i in range(1, len(cf)) if abs(cf[i] - 100) < 1e-6]
+        yearly_hits = _yearly_hit_months(cf, 1_000)
+        assert monthly_hits == list(range(1, 13))
+        assert yearly_hits == [30, 42]
 
 
 class TestKostenJaar1:

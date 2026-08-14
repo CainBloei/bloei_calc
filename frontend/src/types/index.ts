@@ -18,6 +18,10 @@ export interface RekenInput {
   periodieke_storting_einddatum?: string;
   periodieke_onttrekking_startdatum?: string;
   periodieke_onttrekking_einddatum?: string;
+  periodieke_storting_jaarlijks_startdatum?: string;
+  periodieke_storting_jaarlijks_einddatum?: string;
+  periodieke_onttrekking_jaarlijks_startdatum?: string;
+  periodieke_onttrekking_jaarlijks_einddatum?: string;
   eenmalige_cashflows: EenmaligeCashflow[];
   afbouw_profiel: boolean;
   is_bloei_plus: boolean;
