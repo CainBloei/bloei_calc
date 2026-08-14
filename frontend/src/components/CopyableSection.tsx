@@ -118,7 +118,11 @@ export const CopyableSection: React.FC<CopyableSectionProps> = ({
         return;
       }
 
-      const card = (root.firstElementChild as HTMLElement | null) ?? root;
+      const card =
+        Array.from(root.children).find(
+          (el): el is HTMLElement =>
+            el instanceof HTMLElement && !el.hasAttribute('data-copy-ignore'),
+        ) ?? root;
       const expanded = root.querySelectorAll<HTMLElement>('[data-copy-expand]');
       const previous: Array<{ el: HTMLElement; maxHeight: string; overflow: string }> = [];
 
